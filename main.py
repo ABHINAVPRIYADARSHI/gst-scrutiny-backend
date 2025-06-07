@@ -1,5 +1,5 @@
 import os, glob, logging
-from http.client import HTTPException
+from fastapi import HTTPException
 from typing import List
 from fastapi import FastAPI, UploadFile, File, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +8,7 @@ from utils.file_handler import save_uploaded_file
 from utils.pdf_processor import process_pdf_files
 from utils.csv_processor import process_csv_files
 from utils.master_generator import generate_master_excel_for_return_type
-return_types = ["GSTR-1", "GSTR-2A", "GSTR-3B", "GSTR-9"]  # Add more return types when needed
+return_types = ["GSTR-1", "GSTR-2A", "GSTR-3B", "GSTR-9", "EWB-IN", "EWB-OUT"]  # Add more return types when needed
 
 app = FastAPI()
 

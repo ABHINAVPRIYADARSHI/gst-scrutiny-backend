@@ -7,19 +7,19 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Define header row ranges per sheet (0-indexed)
 header_row_map = {
-    "B2B": [4, 5, 6],
-    "B2BA": [4, 5, 6, 7],
-    "CDNR": [4, 5, 6],
-    "CDNRA": [4, 5, 6, 7],
-    "ECO": [4, 5, 6],
-    "ECOA": [4, 5, 6, 7],
-    "ISD": [4, 5, 6],
-    "ISDA": [4, 5, 6, 7],
-    "TDS": [4, 5, 6],
-    "TDSA": [4, 5, 6],
-    "TCS": [4, 5, 6],
-    "IMPG": [4, 5, 6],
-    "IMPG SEZ": [4, 5, 6],
+    "B2B": [3, 4, 5],
+    "B2BA": [3, 4, 5, 6],
+    "CDNR": [3, 4, 5],
+    "CDNRA": [3, 4, 5, 6],
+    "ECO": [3, 4, 5],
+    "ECOA": [3, 4, 5, 6],
+    "ISD": [3, 4, 5],
+    "ISDA": [3, 4, 5, 6],
+    "TDS": [3, 4, 5],
+    "TDSA": [3, 4, 5],
+    "TCS": [3, 4, 5],
+    "IMPG": [3, 4, 5],
+    "IMPG SEZ": [3, 4, 5],
 }
 
 async def generate_gstr2a_master(input_dir, output_dir):
@@ -74,20 +74,20 @@ async def generate_gstr2a_master(input_dir, output_dir):
                 continue
 
             df = pd.DataFrame(data_rows)
-            sheet_data[sheet_name].append(df)
-
+            # Filter for rows ending in '-Total' in 3rd column
+            df = df[df.iloc[:, 2].astype(str).str.endswith("-Total")]
+            if not df.empty:
+                sheet_data[sheet_name].append(df)
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "GSTR2A_Master_Report.xlsx")
     master_wb = Workbook()
     master_wb.remove(master_wb.active)
 
     for sheet_name in header_row_map:
-        master_ws = master_wb.create_sheet(title=sheet_name[:31])
-
+        master_ws = master_wb.create_sheet(title=(sheet_name + "_merged")[:31])
         # Paste header rows (just values)
         for row in headers_to_copy.get(sheet_name, []):
             master_ws.append(row)
-
         # Write stacked data
         df_list = sheet_data.get(sheet_name)
         if df_list:

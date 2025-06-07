@@ -23,16 +23,15 @@ async def generate_gstr3b_master(input_dir, output_dir):
     final_tables = {}
     for key, df_list in combined_tables.items():
         base_df = df_list[0].copy(deep=True)
-
-        print(f"\nProcessing table: {key}")
-        print(f"Number of files: {len(df_list)}")
+        # print(f"\nProcessing table: {key}")
+        # print(f"Number of files: {len(df_list)}")
         for row_idx in range(base_df.shape[0]):
             for col_idx in range(1, base_df.shape[1]):
                 total = 0.0
                 for df_num, df in enumerate(df_list):
                     try:
                         val = df.iat[row_idx, col_idx]
-                        print(f"File {df_num}: Cell[{row_idx},{col_idx}] = {val}")
+                        # print(f"File {df_num}: Cell[{row_idx},{col_idx}] = {val}")
                         num = pd.to_numeric(val, errors='coerce')
                         if pd.notnull(num):
                             total += num
