@@ -4,7 +4,7 @@ from glob import glob
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
-async def generate_ewb_in_master(input_dir, output_dir):
+async def generate_ewb_in_merged(input_dir, output_dir):
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No EWB-IN Excel files found in the input directory.")
@@ -21,7 +21,7 @@ async def generate_ewb_in_master(input_dir, output_dir):
         current_sheet_name = wb.sheetnames[0]  # only one sheet per file
 
         ws = wb[current_sheet_name]
-        print(f"📄 Processing file: {os.path.basename(file_path)}, sheet: {current_sheet_name}")
+        print(f"Processing file: {os.path.basename(file_path)}, sheet: {current_sheet_name}")
 
         # For first file, store sheet name and header row
         if file_idx == 0:
@@ -61,21 +61,21 @@ async def generate_ewb_in_master(input_dir, output_dir):
     # Combine all dataframes vertically
     combined_df = pd.concat(data_frames, ignore_index=True)
 
-    # Prepare master workbook and sheet
+    # Prepare merged workbook and sheet
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "EWB-IN_Master_Report.xlsx")
+    output_path = os.path.join(output_dir, "EWB-IN_merged.xlsx")
 
-    master_wb = Workbook()
-    master_ws = master_wb.active
-    master_ws.title = (sheet_name + "_merged")[:31]
+    merged_wb = Workbook()
+    merged_ws = merged_wb.active
+    merged_ws.title = (sheet_name + "_merged")[:31]
 
     # Write header row
-    master_ws.append(header)
+    merged_ws.append(header)
 
     # Write combined data rows
     for row in dataframe_to_rows(combined_df, index=False, header=False):
-        master_ws.append(row)
+        merged_ws.append(row)
 
-    master_wb.save(output_path)
-    print(f"✅ EWB-IN Master Excel saved to: {output_path}")
+    merged_wb.save(output_path)
+    print(f"✅ EWB-IN_merged Excel saved to: {output_path}")
     return output_path

@@ -22,7 +22,7 @@ header_row_map = {
     "IMPG SEZ": [3, 4, 5],
 }
 
-async def generate_gstr2a_master(input_dir, output_dir):
+async def generate_gstr2a_merged(input_dir, output_dir):
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No Excel files found in the input directory.")
@@ -74,33 +74,34 @@ async def generate_gstr2a_master(input_dir, output_dir):
                 continue
 
             df = pd.DataFrame(data_rows)
-            # Filter for rows ending in '-Total' in 3rd column
-            df = df[df.iloc[:, 2].astype(str).str.endswith("-Total")]
+            # Filter for rows not ending in '-Total' in 3rd column
+            # df = df[df.iloc[:, 2].astype(str).str.endswith("-Total")]
+            df = df[~df.iloc[:, 2].astype(str).str.endswith("-Total")]
             if not df.empty:
                 sheet_data[sheet_name].append(df)
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "GSTR2A_Master_Report.xlsx")
-    master_wb = Workbook()
-    master_wb.remove(master_wb.active)
+    output_path = os.path.join(output_dir, "GSTR-2A_merged.xlsx")
+    merged_wb = Workbook()
+    merged_wb.remove(merged_wb.active)
 
     for sheet_name in header_row_map:
-        master_ws = master_wb.create_sheet(title=(sheet_name + "_merged")[:31])
+        merged_ws = merged_wb.create_sheet(title=(sheet_name + "_merged")[:31])
         # Paste header rows (just values)
         for row in headers_to_copy.get(sheet_name, []):
-            master_ws.append(row)
+            merged_ws.append(row)
         # Write stacked data
         df_list = sheet_data.get(sheet_name)
         if df_list:
             combined_df = pd.concat(df_list, ignore_index=True)
             for row in dataframe_to_rows(combined_df, index=False, header=False):
-                master_ws.append(row)
+                merged_ws.append(row)
 
     # Write Read me
     if readme_copy:
-        readme_ws = master_wb.create_sheet("Read me")
+        readme_ws = merged_wb.create_sheet("Read me")
         for row in readme_copy.iter_rows(values_only=True):
             readme_ws.append(row)
 
-    master_wb.save(output_path)
-    print(f"✅ GSTR-2A Master Excel saved to: {output_path}")
+    merged_wb.save(output_path)
+    print(f"✅ GSTR-2A merged Excel saved to: {output_path}")
     return output_path

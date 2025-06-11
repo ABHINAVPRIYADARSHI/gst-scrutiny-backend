@@ -7,8 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from utils.file_handler import save_uploaded_file
 from utils.pdf_processor import process_pdf_files
 from utils.csv_processor import process_csv_files
-from utils.master_generator import generate_master_excel_for_return_type
-return_types = ["GSTR-1", "GSTR-2A", "GSTR-3B", "GSTR-9", "EWB-IN", "EWB-OUT"]  # Add more return types when needed
+from utils.master_generator import generate_merged_excel_and_analysis_report
 
 app = FastAPI()
 
@@ -66,27 +65,32 @@ def delete_file(gstn: str, return_type: str, filename: str):
         return {"message": "File deleted successfully."}
     return JSONResponse(status_code=404, content={"error": "File not found."})
 
+# @app.post("/generate_master/")
+# async def generate_master(gstn: str = Form(...)):
+#     """Generate master Excel files for all return types for a given GSTIN."""
+#     generated_reports = []
+#     for rt in return_types:
+#         input_dir = f"uploaded_files/{gstn}/{rt}"
+#         output_dir = f"reports/{gstn}/{rt}"
+#         os.makedirs(output_dir, exist_ok=True)
+#
+#         if not os.path.exists(input_dir) or not os.listdir(input_dir):
+#             print(f"[{rt}] Skipped: No input files in {input_dir}")
+#             continue
+#
+#         try:
+#             output_file = await generate_master_excel_for_return_type(rt, input_dir, output_dir)
+#             generated_reports.append({"return_type": rt, "report": output_file})
+#         except Exception as e:
+#             print(f"[{rt}] Error: {e}")
+#             continue
+#
+#     if not generated_reports:
+#         raise HTTPException(status_code=404, detail="No reports generated for any return type")
+#
+#     return JSONResponse(content={"status": "completed", "reports": generated_reports})
+
 @app.post("/generate_master/")
 async def generate_master(gstn: str = Form(...)):
-    """Generate master Excel files for all return types for a given GSTIN."""
-    generated_reports = []
-    for rt in return_types:
-        input_dir = f"uploaded_files/{gstn}/{rt}"
-        output_dir = f"reports/{gstn}/{rt}"
-        os.makedirs(output_dir, exist_ok=True)
-
-        if not os.path.exists(input_dir) or not os.listdir(input_dir):
-            print(f"[{rt}] Skipped: No input files in {input_dir}")
-            continue
-
-        try:
-            output_file = await generate_master_excel_for_return_type(rt, input_dir, output_dir)
-            generated_reports.append({"return_type": rt, "report": output_file})
-        except Exception as e:
-            print(f"[{rt}] Error: {e}")
-            continue
-
-    if not generated_reports:
-        raise HTTPException(status_code=404, detail="No reports generated for any return type")
-
+    generated_reports = await generate_merged_excel_and_analysis_report(gstn)
     return JSONResponse(content={"status": "completed", "reports": generated_reports})

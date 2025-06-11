@@ -6,7 +6,7 @@ from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl import load_workbook
 
-async def generate_gstr1_master(input_dir, output_dir):
+async def generate_gstr1_merged(input_dir, output_dir):
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No GSTR-1 Excel files found in input directory.")
@@ -49,7 +49,7 @@ async def generate_gstr1_master(input_dir, output_dir):
 
     # ✅ Write final output Excel
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "GSTR1_Master_Report.xlsx")
+    output_path = os.path.join(output_dir, "GSTR-1_merged.xlsx")
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -66,5 +66,5 @@ async def generate_gstr1_master(input_dir, output_dir):
                 ws.append(row)
 
     wb.save(output_path)
-    print(f"✅ GSTR-1 Master Excel saved to: {output_path}")
+    print(f"✅ GSTR-1 merged Excel saved to: {output_path}")
     return output_path
