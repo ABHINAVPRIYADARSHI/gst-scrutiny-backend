@@ -3,6 +3,8 @@ import pandas as pd
 from glob import glob
 from collections import defaultdict
 from utils.extractors.gstr3b_table_extractor import extract_fixed_tables_from_gstr3b
+from utils.globals.constants import newFormat
+from utils.globals.constants import oldFormat
 
 manual_columns = [
                     "Description",
@@ -15,7 +17,10 @@ manual_columns = [
                     "Interest paid in cash",
                     "Late fee paid in cash"
                 ]
+
+
 async def generate_gstr3b_merged(input_dir, output_dir):
+    gstr3b_format = newFormat # By default new
     print("Generating GSTR-3B merged report...")
 
     pdf_files = glob(os.path.join(input_dir, "*.pdf"))
@@ -23,17 +28,22 @@ async def generate_gstr3b_merged(input_dir, output_dir):
         raise FileNotFoundError("No PDF files found in input directory.")
 
     print(f"Found {len(pdf_files)} PDF files.")
-
+    # For a given key ("3.1"), combined_tables contains all the 3.1 tables from multiple uploaded PDF files
     combined_tables = defaultdict(list)
-
     for pdf_path in pdf_files:
         table_map = extract_fixed_tables_from_gstr3b(pdf_path)
         for key, df in table_map.items():
             combined_tables[key].append(df)
+    # Table 3.1.1 is available only in new format
+    if("3.1.1") not in combined_tables:
+        gstr3b_format = oldFormat
 
     final_tables = {}
     for key, df_list in combined_tables.items():
-        if key == "6.1":
+        if key in ("1", "2"):
+            final_tables[key] = df_list[0]
+            continue
+        elif key == "6.1":
             preprocess_table_6(df_list)
         base_df = df_list[0].copy(deep=True)
         # print(f"\nProcessing table: {key}")
@@ -59,17 +69,26 @@ async def generate_gstr3b_merged(input_dir, output_dir):
     output_path = os.path.join(output_dir, "GSTR-3B_merged.xlsx")
 
     with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
-        start_row = 0
+        start_row = 1  # Reserve row 0 for format info ("Old Format" or "New Format")
         sheet_name = "GSTR-3B_merged"
+
         for key, df in final_tables.items():
             title_df = pd.DataFrame([[f"Table {key}"]])
             title_df.to_excel(writer, sheet_name=sheet_name, startrow=start_row, index=False, header=False)
             start_row += 1
             df.to_excel(writer, sheet_name=sheet_name, startrow=start_row, index=False)
             start_row += len(df) + 2
+
+        # Access the worksheet and workbook
         worksheet = writer.sheets[sheet_name]
-        fixed_width = 40
-        worksheet.set_column(0, 8, fixed_width)
+        workbook = writer.book  # ✅ Correct place to call add_format
+        # Create a wrapped cell format
+        wrap_format = workbook.add_format({'text_wrap': True})
+        # Write format info in cell A1
+        worksheet.write(0, 0, gstr3b_format, wrap_format)  # gstr3b_format = "Old Format" or "New Format"
+        # Apply wrap format and width to all relevant columns
+        num_columns = max(len(df.columns) for df in final_tables.values())
+        worksheet.set_column(0, num_columns - 1, 30, wrap_format)
 
     print(f"GSTR-3B_merged saved to: {output_path}")
     return output_path  # ✅ Return the file path for use in API response
