@@ -13,6 +13,7 @@ RATE_COL = 8   # Column I (zero-based)
 REVERSE_CHARGE_COL =7  # Column H
 CANCELLED_DATE_COL = 20  # Column U
 
+
 def summarize_tax(df: pd.DataFrame, tax_cols):
     """Convert tax columns to numeric and return a one-row summary."""
     df_numeric = df[tax_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -20,7 +21,9 @@ def summarize_tax(df: pd.DataFrame, tax_cols):
     summary["Total Tax"] = summary.sum(axis=1)
     return summary
 
+
 async def generate_gstr2a_analysis(gstin):
+    print(f" Started execution of method generate_gstr2a_analysis for: {gstin}")
     input_path = f"reports/{gstin}/GSTR-2A/GSTR-2A_merged.xlsx"
     output_path = f"reports/{gstin}/GSTR-2A/GSTR-2A_analysis.xlsx"
 

@@ -4,7 +4,9 @@ from glob import glob
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
+
 async def generate_ewb_out_merged(input_dir, output_dir):
+    print(f" Started execution of method generate_ewb_out_merged for: {input_dir}")
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No EWB-OUT Excel files found in the input directory.")

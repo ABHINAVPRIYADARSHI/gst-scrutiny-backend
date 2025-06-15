@@ -10,7 +10,6 @@ from .ewb_in_merged import generate_ewb_in_merged
 from .ewb_out_merged import generate_ewb_out_merged
 
 return_types = ["GSTR-1", "GSTR-2A", "GSTR-3B", "GSTR-9", "EWB-IN", "EWB-OUT"]  # Add more return types when needed
-generated_reports = []
 
 
 async def generate_merged_excel_and_analysis_report(gstin):
@@ -26,6 +25,7 @@ async def generate_analysis_reports(gstin):
 
 
 async def generate_merged_excel_for_return_types(gstin):
+    print(f"=== Starting execution of function generate_merged_excel_for_return_types for GSTIN: {gstin} ===")
     generated_reports = []
     for rt in return_types:
         input_dir = f"uploaded_files/{gstin}/{rt}"
@@ -41,15 +41,14 @@ async def generate_merged_excel_for_return_types(gstin):
                 case "GSTR-1":
                     output_file = await generate_gstr1_merged(input_dir, output_dir)
                     generated_reports.append({"return_type": rt, "report": output_file})
-                    # case "GSTR-2A":
+                case "GSTR-2A":
                     await generate_gstr2a_merged(input_dir, output_dir)
                     generated_reports.append({"return_type": rt, "report": output_file})
                 case "GSTR-3B":
                     output_file = await generate_gstr3b_merged(input_dir, output_dir)
                     generated_reports.append({"return_type": rt, "report": output_file})
                 # case "GSTR-9":
-                #      await generate_gstr9(gstin, input_dir, output_dir)
-                #      generated_reports.append({"return_type": rt, "report": output_file})
+                #      We don't merge GSTR-9, we directly analyse it as its a single file.
                 case "EWB-IN":
                     await generate_ewb_in_merged(input_dir, output_dir)
                     generated_reports.append({"return_type": rt, "report": output_file})
@@ -58,7 +57,7 @@ async def generate_merged_excel_for_return_types(gstin):
                     generated_reports.append({"return_type": rt, "report": output_file})
                 case _:
                     print(f" Not a valid return type  {rt}")
-
         except Exception as e:
             print(f"[{rt}] Error: {e}")
             continue
+    print(f"✅ Returning after successful execution of generate_merged_excel_for_return_types for GSTIN: {gstin} ===")

@@ -22,7 +22,10 @@ header_row_map = {
     "IMPG SEZ": [3, 4, 5],
 }
 
+
 async def generate_gstr2a_merged(input_dir, output_dir):
+    print(f"Started execution of method generate_gstr2a_merged for: {input_dir}")
+
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No Excel files found in the input directory.")

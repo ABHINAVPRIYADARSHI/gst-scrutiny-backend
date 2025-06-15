@@ -6,7 +6,9 @@ HSN_COL = 0
 RATE_COL = 4
 TAX_COLS = [5, 6, 7, 8, 9]  # Taxable Value, IGST, CGST, SGST, Cess
 
+
 async def generate_gstr1_analysis(gstin: str):
+    print(f" Started execution of method generate_gstr1_analysis for: {gstin}")
     input_path = f"reports/{gstin}/GSTR-1/GSTR-1_merged.xlsx"
     output_path = f"reports/{gstin}/GSTR-1/GSTR-1_Analysis.xlsx"
 

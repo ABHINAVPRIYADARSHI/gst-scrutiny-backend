@@ -42,7 +42,7 @@ async def generate_gstr3b_analysis(gstin):
         # Save the workbook
         wb.save(output_path)
         print(f"Excel file saved to: {output_path}")
-        print(" === Returning after successful execution 0f file gstr3b_analysis.py ===")
+        print(" === ✅ Returning after successful execution 0f file gstr3b_analysis.py ===")
 
     except Exception as e:
         print(f"[GSTR-3B Analysis] ❌ Error during analysis: {e}")

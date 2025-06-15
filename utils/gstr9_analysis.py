@@ -146,7 +146,7 @@ async def generate_gstr9_analysis(gstin):
 
         wb.save(output_dir_of_GSTR_9_report)
         print(f"Excel file saved to: {output_dir_of_GSTR_9_report}")
-        print(" === Returning after successful execution 0f file gstr9_reader.py ===")
+        print(" === ✅ Returning after successful execution 0f file gstr9_reader.py ===")
     except Exception as e:
         print(f"[GSTR-9 Analysis] ❌ Error during analysis: {e}")
 

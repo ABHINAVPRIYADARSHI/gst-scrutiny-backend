@@ -2,6 +2,7 @@ import pdfplumber
 import pandas as pd
 import os
 
+
 def process_pdf_files(file_paths: list[str], return_type: str) -> str:
     combined_data = []
 
