@@ -1,28 +1,32 @@
 @echo off
-REM Navigate to frontend and build React app
-echo ===== Building React frontend =====
+echo Building GST Scrutiny application...
+echo.
+
+echo Step 1: Building frontend...
 cd ..\frontend\gst-scrutiny-ui
+call npm run build
 
-REM Check if node_modules exists to skip re-installation
-IF NOT EXIST "node_modules" (
-    echo Installing dependencies...
-    npm install
-)
-
-REM Build React app
-npm run build
-
-IF %ERRORLEVEL% NEQ 0 (
-    echo React build failed. Exiting...
+if %ERRORLEVEL% NEQ 0 (
+    echo Frontend build failed!
+    cd ..\..\backend
     pause
     exit /b %ERRORLEVEL%
 )
 
-REM Go back to backend
+echo Frontend build completed successfully!
+echo.
+
+echo Step 2: Returning to backend and building executable...
 cd ..\..\backend
 
-echo ===== Creating executable with PyInstaller =====
-python -m PyInstaller --onefile --noconfirm --add-data "..\frontend\gst-scrutiny-ui\build;frontend/gst-scrutiny-ui/build" main.py
+python -m PyInstaller --onefile --noconfirm --icon=logo.ico --add-data "..\frontend\gst-scrutiny-ui\build;frontend/gst-scrutiny-ui/build" main.py
 
-echo ===== Build Complete =====
+echo.
+if %ERRORLEVEL% EQU 0 (
+    echo Build completed successfully!
+    echo Executable should be in the 'dist' folder.
+) else (
+    echo Build failed with error code %ERRORLEVEL%
+)
+
 pause

@@ -14,6 +14,11 @@ from utils.file_handler import save_uploaded_file
 from utils.pdf_processor import process_pdf_files
 from utils.csv_processor import process_csv_files
 from utils.master_generator import generate_merged_excel_and_analysis_report
+from fastapi.responses import JSONResponse
+from openpyxl import load_workbook
+from fastapi import HTTPException
+from pathlib import Path
+import psutil
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -120,7 +125,7 @@ async def generate_master(gstn: str = Form(...)):
 
 @app.get("/reports/")
 def list_reports(gstn: str = Query(...)):
-    gstn_folder = os.path.join(REPORTS_BASE_PATH, gstn.upper())
+    gstn_folder = os.path.join(REPORTS_BASE_PATH, gstn)
     if not os.path.exists(gstn_folder):
         return JSONResponse(status_code=404, content={"detail": "No reports found."})
 
@@ -130,11 +135,59 @@ def list_reports(gstn: str = Query(...)):
 
 @app.get("/reports/download/")
 def download_report(gstn: str = Query(...), filename: str = Query(...)):
-    filepath = os.path.join(REPORTS_BASE_PATH, gstn.upper(), filename)
+    filepath = os.path.join(REPORTS_BASE_PATH, gstn, filename)
     if not os.path.exists(filepath):
         return JSONResponse(status_code=404, content={"detail": "File not found."})
     return FileResponse(path=filepath, filename=filename,
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.get("/reports/preview/")
+def preview_excel(gstn: str, filename: str):
+    file_path = f"reports/{gstn}/{filename}"
+
+    try:
+        wb = load_workbook(file_path, data_only=True)
+        preview_data = []
+
+        for sheet in wb.sheetnames:
+            ws = wb[sheet]
+            rows = []
+            for row in ws.iter_rows(values_only=True):
+                rows.append([str(cell) if cell is not None else "" for cell in row])
+            preview_data.append({
+                "name": sheet,
+                "data": rows
+            })
+
+        return JSONResponse(content={"sheets": preview_data})
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/check-open-reports/")
+def check_open_reports(gstn: str = Query(...)):
+    report_path = Path(f"./reports/{gstn}")
+    if not report_path.exists():
+        return {"open": False}
+
+    for file in report_path.glob("*.xlsx"):
+        locked = False
+        temp_name = file.with_suffix(".tmp")
+        try:
+            file.rename(temp_name)
+            temp_name.rename(file)  # rename it back
+        except PermissionError:
+            locked = True
+        except Exception:
+            continue  # Ignore other errors
+
+        if locked:
+            return {"open": True}
+
+    return {"open": False}
+
 
 # === App Startup ===
 if __name__ == "__main__":

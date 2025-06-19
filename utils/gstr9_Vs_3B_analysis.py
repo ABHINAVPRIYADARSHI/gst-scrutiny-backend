@@ -4,18 +4,20 @@ from tabulate import tabulate
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 
-from .globals.constants import estimatedLiability, floating_zero
-from .gstr9_reader import gstr9_reader
-from .gstr3b_reader import gstr3b_reader
+from .globals.constants import estimatedITCReversal, floating_zero, result_point_10, result_point_11, result_point_16, \
+    result_point_18, result_point_17
+from .gstr9_pdf_reader import gstr9_pdf_reader
+from .gstr3b_merged_reader import gstr3b_merged_reader
 
 
-async def generate_gstr9_analysis(gstin):
-    print(" === Starting execution of file gstr9_analysis.py ===")
-    output_dir_of_GSTR_9_report = f"reports/{gstin}/GSTR-9/GSTR-9 vs GSTR-3B.xlsx"
+async def generate_gstr9_Vs_3B_analysis(gstin):
+    final_result_points = {}
+    print(" === Starting execution of file gstr9_Vs_3B_analysis.py ===")
+    output_dir_of_GSTR_9_report = f"reports/{gstin}/GSTR-9 vs GSTR-3B.xlsx"
 
     try:
-        valuesFrom9 = await gstr9_reader(gstin)
-        valuesFrom3b = await gstr3b_reader(gstin)
+        valuesFrom9 = await gstr9_pdf_reader(gstin)
+        valuesFrom3b = await gstr3b_merged_reader(gstin)
         # Create a new workbook and sheet (always fresh)
         wb = Workbook()
         ws = wb.active
@@ -37,49 +39,51 @@ async def generate_gstr9_analysis(gstin):
         ws.cell(row=row_cursor, column=2, value=valuesFrom9["table4_N1"])
         ws.cell(row=row_cursor, column=3, value=convert_to_number(valuesFrom9["table4_N2"]))
         row_cursor += 1
-        ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged_T3.1_(cell a + c)")
-        ws.cell(row=row_cursor, column=3, value=valuesFrom3b["sum_table_3_1_A1_and_C1"])
+        ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged_T3.1_(cell a + b + d)")
+        ws.cell(row=row_cursor, column=3, value=valuesFrom3b["sum_table_3_1_row_a_b_d_taxes"])
         row_cursor += 3
 
-        # 3. Table_5_row_D
-        ws.cell(row=row_cursor, column=1, value="GSTR-9_T5_D2")
+        # 3. Table_5_row_D_+_E
+        ws.cell(row=row_cursor, column=1, value="GSTR-9_T5_D_+_E")
         ws.cell(row=row_cursor, column=2, value=valuesFrom9["table_5_D1"])
         ws.cell(row=row_cursor, column=3, value=convert_to_number(valuesFrom9["table_5_D2"]))
         row_cursor += 1
-        ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged_T3.1_c")
+        ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged_T3.1_C_+_E")
         ws.cell(row=row_cursor, column=2, value=valuesFrom3b["table_3_1_C1"])
         ws.cell(row=row_cursor, column=3, value=convert_to_number(valuesFrom3b["table_3_1_C2"]))
         row_cursor += 3
 
         # 4. Table_5_row_N
-        ws.cell(row=row_cursor, column=1, value="GSTR-9_T5_N2")
+        ws.cell(row=row_cursor, column=1, value="GSTR-9_T5_N")
         ws.cell(row=row_cursor, column=2, value=valuesFrom9["table_5_N1"])
         ws.cell(row=row_cursor, column=3, value=convert_to_number(valuesFrom9["table_5_N2"]))
         row_cursor += 1
-        ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged_T3.1_Sum_(a+b+c+d+e)")
-        ws.cell(row=row_cursor, column=3, value=valuesFrom3b["sum_table_3_1_A1_to_E1"])
+        ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged_T3.1_Sum_(a+b+d+e-c)")
+        ws.cell(row=row_cursor, column=3, value=valuesFrom3b["sum_table_3_1_A1_B1_D1_E1_minus_C1"])
         row_cursor += 3
 
         # 5. Table_6_row_H
         ws.cell(row=row_cursor, column=1, value="GSTR-9_T6_H (ITC reclaimed)")
-        ws.cell(row=row_cursor, column=2, value="Interest Liability on amount: ")
+        ws.cell(row=row_cursor, column=2, value="Interest Liability on reclaimed ITC: ")
         ws.cell(row=row_cursor, column=3, value=valuesFrom9["sum_table6_row_H"])
+        final_result_points[result_point_11] = valuesFrom9["sum_table6_row_H"]
         row_cursor += 3
 
         # 6. Table_7_row_A
         ws.cell(row=row_cursor, column=1, value="GSTR-9_T7_A (As per Rule 37)")
-        ws.cell(row=row_cursor, column=2, value="Interest Liability on amount: ")
+        ws.cell(row=row_cursor, column=2, value="Interest Liability on reversed ITC: ")
         ws.cell(row=row_cursor, column=3, value=valuesFrom9["sum_table7_row_A"])
+        final_result_points[result_point_10] = valuesFrom9["sum_table7_row_A"]
         row_cursor += 3
 
         # 7. Table_7_row_C
         ws.cell(row=row_cursor, column=1, value="GSTR-9_T7_C (As per Rule 42)")
-        ws.cell(row=row_cursor, column=2, value=" ITC reversal as per GSTR-9")
+        ws.cell(row=row_cursor, column=2, value=" Proportionate ITC reversal as per GSTR-9")
         ws.cell(row=row_cursor, column=3, value=valuesFrom9["sum_table7_row_C"])
         row_cursor += 1
         ws.cell(row=row_cursor, column=1, value="GSTR-3B_merged")
-        ws.cell(row=row_cursor, column=2, value="Estimated Liability as per GSTR-3B")
-        ws.cell(row=row_cursor, column=3, value=valuesFrom3b[estimatedLiability])
+        ws.cell(row=row_cursor, column=2, value="Estimate Proportionate reversal as per GSTR-3B")
+        ws.cell(row=row_cursor, column=3, value=valuesFrom3b[estimatedITCReversal])
         row_cursor += 3
 
         # 8. Table_8_row_D
@@ -91,7 +95,8 @@ async def generate_gstr9_analysis(gstin):
         ws.cell(row=row_cursor, column=6, value=convert_to_number(valuesFrom9["table_8_D5"]))
         ws.cell(row=row_cursor, column=7, value=valuesFrom9["sum_table8_row_D"])
         # if valuesFrom9["sum_table8_row_D"] < floating_zero:
-        ws.cell(row=row_cursor, column=8, value="None of these values should be negative")
+        ws.cell(row=row_cursor, column=8, value="None of these values should be negative. Negative value "
+                                                "signifies excess ITC availed.")
         row_cursor += 3
 
         # 9. Table_8_row_I
@@ -102,13 +107,14 @@ async def generate_gstr9_analysis(gstin):
         ws.cell(row=row_cursor, column=5, value=convert_to_number(valuesFrom9["table_8_I4"]))
         ws.cell(row=row_cursor, column=6, value=convert_to_number(valuesFrom9["table_8_I5"]))
         ws.cell(row=row_cursor, column=7, value=valuesFrom9["sum_table8_row_I"])
-        # if valuesFrom9["sum_table8_row_I"] < 0.00:
-        ws.cell(row=row_cursor, column=8, value="None of these values should be negative")
+        ws.cell(row=row_cursor, column=8, value="None of these values should be negative. Negative value "
+                                                "signifies excess credit taken on import than payment made.")
+        final_result_points[result_point_17] = valuesFrom9["sum_table8_row_I"]
         row_cursor += 3
 
         # 10. Table 9: Tax Payable == Paid through cash + Paid through ITC
         ws.cell(row=row_cursor, column=1, value="GSTR-9_T9_SUM(Col_2)")
-        ws.cell(row=row_cursor, column=2, value="Total Tax payable")
+        ws.cell(row=row_cursor, column=2, value="Total Tax payable (GSTR-9)")
         ws.cell(row=row_cursor, column=3, value=valuesFrom9["tax_payable_T9"])
         row_cursor += 1
         ws.cell(row=row_cursor, column=1, value="GSTR-9_T9_SUM(Col_3+4+5+6+7)")
@@ -117,8 +123,10 @@ async def generate_gstr9_analysis(gstin):
                 value=valuesFrom9["paid_through_cash_T9"] + valuesFrom9["paid_through_ITC_T9"])
         row_cursor += 1
         ws.cell(row=row_cursor, column=2, value="Tax mismatch")
-        ws.cell(row=row_cursor, column=3, value=valuesFrom9["tax_payable_T9"] - (
-                valuesFrom9["paid_through_cash_T9"] + valuesFrom9["paid_through_ITC_T9"]))
+        tax_mismatch = valuesFrom9["tax_payable_T9"] - (
+                valuesFrom9["paid_through_cash_T9"] + valuesFrom9["paid_through_ITC_T9"])
+        ws.cell(row=row_cursor, column=3, value=tax_mismatch)
+        final_result_points[result_point_16] = tax_mismatch
         row_cursor += 3
 
         # 11. Total tax payable derived from Table 6 of file GSTR-3B_merged.xlsx
@@ -131,8 +139,10 @@ async def generate_gstr9_analysis(gstin):
         ws.cell(row=row_cursor, column=3, value=valuesFrom3b["total_tax_payable_column_GSTR_3B_table_6"])
         row_cursor += 1
         ws.cell(row=row_cursor, column=2, value="Tax mismatch")
+        tax_mismatch_point_18 = valuesFrom9["tax_payable_T9"] - valuesFrom3b["total_tax_payable_column_GSTR_3B_table_6"]
         ws.cell(row=row_cursor, column=3,
-                value=valuesFrom9["tax_payable_T9"] - valuesFrom3b["total_tax_payable_column_GSTR_3B_table_6"])
+                value=tax_mismatch_point_18)
+        final_result_points[result_point_18] = tax_mismatch_point_18
         row_cursor += 1
 
         # Apply wrap_text and fixed width to all cells in that column
@@ -146,9 +156,11 @@ async def generate_gstr9_analysis(gstin):
 
         wb.save(output_dir_of_GSTR_9_report)
         print(f"Excel file saved to: {output_dir_of_GSTR_9_report}")
-        print(" === ✅ Returning after successful execution 0f file gstr9_reader.py ===")
+        print(" === ✅ Returning after successful execution 0f file gstr9_pdf_reader.py ===")
+        return final_result_points
     except Exception as e:
-        print(f"[GSTR-9 Analysis] ❌ Error during analysis: {e}")
+        print(f"[GSTR-9_Vs_3B Analysis] ❌ Error during analysis: {e}")
+        return final_result_points
 
 
 def convert_to_number(value):

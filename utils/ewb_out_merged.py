@@ -1,83 +1,44 @@
 import os
 import pandas as pd
 from glob import glob
-from openpyxl import Workbook, load_workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
+from utils.globals.constants import ewb_out_MIS_report
 
 
 async def generate_ewb_out_merged(input_dir, output_dir):
     print(f" Started execution of method generate_ewb_out_merged for: {input_dir}")
-    excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
-    if not excel_files:
+    xlsx_files = glob(os.path.join(input_dir, '*.xlsx'))
+    xls_files = glob(os.path.join(input_dir, '*.xls'))
+    all_files = xlsx_files + xls_files
+    if not all_files:
         raise FileNotFoundError("No EWB-OUT Excel files found in the input directory.")
+    print(f"[EWB-Out_merged.py] Found {len(all_files)} Excel files to merge.")
 
-    print(f"[EWB-OUT] Found {len(excel_files)} Excel files.")
-
-    sheet_name = None
-    header = None
-    expected_cols = None
-    data_frames = []
-
-    for file_idx, file_path in enumerate(excel_files):
-        wb = load_workbook(file_path, data_only=True)
-        current_sheet_name = wb.sheetnames[0]  # only one sheet per file
-
-        ws = wb[current_sheet_name]
-        print(f"Processing file: {os.path.basename(file_path)}, sheet: {current_sheet_name}")
-
-        # For first file, store sheet name and header row
-        if file_idx == 0:
-            sheet_name = current_sheet_name
-            header = [cell.value if cell.value is not None else "" for cell in next(ws.iter_rows(min_row=1, max_row=1))]
-            expected_cols = len(header)
-        # else:
-        #     # Validate sheet name matches first file's sheet name
-        #     if current_sheet_name != sheet_name:
-        #         print(f"⚠️ Sheet name '{current_sheet_name}' does not match first file's sheet name '{sheet_name}'. Skipping file.")
-        #         continue
-
-        # Read data rows (starting from row 2)
-        data_rows = [
-            [cell.value for cell in row]
-            for row in ws.iter_rows(min_row=2)
-            if not all(cell.value is None for cell in row)
-        ]
-
-        if not data_rows:
-            print(f"⚠️ No data rows found in file: {os.path.basename(file_path)}")
+    merged_df = None
+    for idx, file_path in enumerate(sorted(all_files)):
+        try:
+            print(f"[INFO] Processing file: {file_path}")
+            df = pd.read_html(file_path)[0]  # These are .html files disguised as .xls. We take 1st table.
+            df.to_excel("converted.xlsx", index=False)
+            # If first file → keep header + data
+            if idx == 0:
+                merged_df = df.copy()
+            else:
+                # Append only data rows (skip header)
+                merged_df = pd.concat([merged_df, df], ignore_index=True)
+        except Exception as e:
+            print(f"[ERROR] Failed to read file {file_path}: {str(e)}")
             continue
-
-        df = pd.DataFrame(data_rows)
-
-        # Validate column count
-        actual_cols = df.shape[1]
-        if actual_cols != expected_cols:
-            print(f"⚠️ Column count mismatch in file '{os.path.basename(file_path)}': expected {expected_cols}, found {actual_cols}. Skipping file.")
-            continue
-
-        data_frames.append(df)
-
-    if not data_frames:
-        raise ValueError("No valid data found across EWB-OUT files after processing.")
-
-    # Combine all dataframes vertically
-    combined_df = pd.concat(data_frames, ignore_index=True)
-
-    # Prepare merged workbook and sheet
+    # Write merged DataFrame to .xlsx
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "EWB-OUT_merged.xlsx")
+    output_path = os.path.join(output_dir, "EWB-Out_merged.xlsx")
+    with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+        merged_df.to_excel(writer, index=False, sheet_name=ewb_out_MIS_report)
 
-    merged_wb = Workbook()
-    merged_ws = merged_wb.active
-    merged_ws.title = (sheet_name + "_merged")[:31]
+        workbook = writer.book  # ✅ Correct place to call add_format
+        wrap_format = workbook.add_format({'text_wrap': True})
+        worksheet = writer.sheets[ewb_out_MIS_report]
+        worksheet.set_column(0, 11, 20, wrap_format)  # From columns 0 to 12
 
-    # Write header row
-    merged_ws.append(header)
-
-    # Write combined data rows
-    for row in dataframe_to_rows(combined_df, index=False, header=False):
-        merged_ws.append(row)
-
-    merged_wb.save(output_path)
-    print(f"✅ EWB-OUT_merged Excel saved to: {output_path}")
-    return output_path
+    print(f"[EWB_Out_handler.py] Merged file saved: {output_path}")
+    print("=== [EWB_Out_handler.py] Completed execution of method merge_ewb_out_files ===")
+    return output_dir

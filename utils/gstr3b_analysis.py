@@ -1,26 +1,27 @@
 from openpyxl import Workbook
-from utils.globals.constants import estimatedLiability
+from utils.globals.constants import estimatedITCReversal, result_point_9, result_point_14, result_point_3, \
+    result_point_7, result_point_19, result_point_20
 from utils.globals.constants import diffInRCMPayment
 from utils.globals.constants import diffInRCM_ITC
-from .gstr3b_reader import gstr3b_reader
+from .gstr3b_merged_reader import gstr3b_merged_reader
 from openpyxl.styles import Alignment
 
-proportionate_reversal = 0
 
-async def generate_gstr3b_analysis(gstin):
+async def generate_gstr3b_merged_analysis(gstin):
     print(" === Starting execution of file gstr3B_analysis.py ===")
-    output_path = f"reports/{gstin}/GSTR-3B/GSTR-3B_analysis.xlsx"
+    final_result_points = {}
+    output_path = f"reports/{gstin}/GSTR-3B_analysis.xlsx"
     try:
-        valuesFrom3b = await gstr3b_reader(gstin)
+        valuesFrom3b = await gstr3b_merged_reader(gstin)
         # Create workbook and sheet
         wb = Workbook()
         # Define sheet names for each pair
-        sheet_names = ["Estimated Liability", "Diif. in RCM ITC", "Diff. in RCM Payment"]
+        sheet_names = ["Estimated Prop. ITC reversal", "Diif. in RCM ITC", "Diff. in RCM Payment"]
         # Define your data pairs
         data_pairs = [
-            ("Estimated Liability", valuesFrom3b[estimatedLiability]),
-            ("Difference in RCM ITC", valuesFrom3b[diffInRCM_ITC]),
-            ("Difference in RCM payment", valuesFrom3b[diffInRCMPayment]),
+            ("Estimated Proportionate ITC Reversal", valuesFrom3b.get(estimatedITCReversal)),
+            ("Difference in RCM ITC", valuesFrom3b.get(diffInRCM_ITC)),
+            ("Difference in RCM payment", valuesFrom3b.get(diffInRCMPayment))
         ]
         # Fill each sheet with one row
         for idx, (sheet_name, (label, value)) in enumerate(zip(sheet_names, data_pairs)):
@@ -42,7 +43,13 @@ async def generate_gstr3b_analysis(gstin):
         # Save the workbook
         wb.save(output_path)
         print(f"Excel file saved to: {output_path}")
-        print(" === ✅ Returning after successful execution 0f file gstr3b_analysis.py ===")
-
+        print(" === ✅ Returning after successful execution of file gstr3b_analysis.py ===")
+        final_result_points[result_point_3] = valuesFrom3b.get(diffInRCM_ITC)
+        final_result_points[result_point_7] = valuesFrom3b.get(estimatedITCReversal)
+        final_result_points[result_point_14] = valuesFrom3b.get("table_3_1_a+c+e_taxable_value")
+        final_result_points[result_point_19] = valuesFrom3b.get("sum_table_4A_row_4")
+        final_result_points[result_point_20] = valuesFrom3b.get("sum_table_4A_row_1")
+        return final_result_points
     except Exception as e:
         print(f"[GSTR-3B Analysis] ❌ Error during analysis: {e}")
+        return final_result_points

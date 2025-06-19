@@ -1,20 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.middleware.cors import CORSMiddleware
 import os
-from typing import List
 
 app = FastAPI()
 
-# CORS for frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Add Vite or React port
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 UPLOAD_DIR = "uploaded_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @app.post("/upload/")
 async def save_uploaded_file(file: UploadFile, gstn: str, return_type: str) -> str:

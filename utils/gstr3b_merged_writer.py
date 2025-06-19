@@ -4,7 +4,7 @@ from glob import glob
 from collections import defaultdict
 from utils.extractors.gstr3b_table_extractor import extract_fixed_tables_from_gstr3b
 from utils.globals.constants import newFormat, str_six_point_one, str_two, str_one, \
-    str_three_point_one_point_one, oldFormat, parse_month_year
+    str_three_point_one_point_one, oldFormat, parse_month_year, clean_and_parse_number, result_point_9
 import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -19,13 +19,14 @@ manual_columns = [
     "Interest paid in cash",
     "Late fee paid in cash"
 ]
-headers = [
+interest_calc_headers = [
     "Financial Year", "Return Month", "Date of ARN", "Due Date", "Days Late", "Tax paid in cash",
-    "Interest paid in cash", "Late fee paid in cash", "Calculated Interest", "Interest Due"
+    "Calculated Interest", "Interest paid in cash", "Interest Due"
 ]
 
 
 async def generate_gstr3b_merged(input_dir, output_dir):
+    final_result_points = {}
     print("=== Generating GSTR-3B merged report ===")
     try:
         gstr3b_format = newFormat  # Let by-default be NEW_FORMAT
@@ -43,7 +44,7 @@ async def generate_gstr3b_merged(input_dir, output_dir):
             table_map = extract_fixed_tables_from_gstr3b(pdf_path)
             for key, df in table_map.items():
                 combined_tables[key].append(df)  # contains tables from all PDF files with table number as key
-                if key in (str_one, str_two, str_six_point_one):
+                if key in (str_one, str_two, str_six_point_one):  # We need tables 1,2 & 6 for interest calc.
                     tables_list.append(df)
             interest_matrix.append(tables_list)  # Used in Interest Calculation sheet
         # Table 3.1.1 is available only in new format
@@ -52,10 +53,10 @@ async def generate_gstr3b_merged(input_dir, output_dir):
 
         final_tables = {}
         for key, df_list in combined_tables.items():
-            if key in ("1", "2"):  # We are not adding values from these two tables as these are mere info values
+            if key in (str_one, str_two):  # We are not adding values from two tables as these are info values
                 final_tables[key] = df_list[0]
                 continue
-            elif key == "6.1":
+            elif key == str_six_point_one:
                 preprocess_table_6(df_list)
             base_df = df_list[0].copy(deep=True)
             # print(f"\nProcessing table: {key}")
@@ -65,21 +66,21 @@ async def generate_gstr3b_merged(input_dir, output_dir):
                     total = 0.0
                     for df_num, df in enumerate(df_list):
                         try:
-                            val = df.iat[row_idx, col_idx]
-                            # print(f"File {df_num}: Cell[{row_idx},{col_idx}] = {val}")
-                            num = pd.to_numeric(val, errors='coerce')
-                            if pd.notnull(num):
-                                total += num
-                                # print(f"  File {df_num}: Cell[{row_idx},{col_idx}] = {val} → {num}")
+                            num = clean_and_parse_number(df.iat[row_idx, col_idx])
+                            #     print(f"File {df_num}: Cell[{row_idx},{col_idx}] = {num}")
+                            total += num
+                            #     print(f"  File {df_num}: Cell[{row_idx},{col_idx}] = {val} → {num}")
                         except Exception as e:
                             print(f"  [Error] File {df_num}: Cell[{row_idx},{col_idx}] → {e}")
                             continue
-
                     base_df.iat[row_idx, col_idx] = total  # if pd.notnull(total) and total != 0 else ""
             final_tables[key] = base_df  # Contains summed up values of tables to be written in excel
 
         # Start with interest calculation
         interest_records = calculate_interest(interest_matrix)
+        # Some of only those values where interest due is +ve
+        positive_interest_due = sum(row[-1] for row in interest_records if row[-1] > 0)
+        final_result_points[result_point_9] = positive_interest_due
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "GSTR-3B_merged.xlsx")
         print(f"Starting to write GSTR-3B_merged sheet to: {output_path}")
@@ -104,19 +105,21 @@ async def generate_gstr3b_merged(input_dir, output_dir):
             # Apply wrap format and width to all relevant columns
             num_columns = max(len(df.columns) for df in final_tables.values())
             worksheet.set_column(0, num_columns - 1, 30, wrap_format)
+            print(f"Completed writing GSTR-3B_merged sheet to: {output_path}")
 
             # ✅ NEW: Write Interest Calculation sheet
             print(f"Starting to write Interest Calculation sheet to: {output_path}")
-            interest_df = pd.DataFrame(interest_records, columns=headers)
+            interest_df = pd.DataFrame(interest_records, columns=interest_calc_headers)
             interest_df.to_excel(writer, sheet_name="Interest Calculation", index=False)
             interest_sheet = writer.sheets["Interest Calculation"]
             interest_sheet.set_column(0, len(interest_df.columns) - 1, 30, wrap_format)
+            print(f"Completed writing Interest Calculation sheet to: {output_path}")
 
         print(f"✅ GSTR-3B_merged.xlsx saved to: {output_path}")
-        return output_path  # ✅ Return the file path for use in API response
+        return output_path, final_result_points  # ✅ Return the file path for use in API response
     except Exception as e:
-        print(f"[GSTR3b_merged]: ❌ Error while merging 3B files.")
-
+        print(f"[GSTR3b_merged]: ❌ Error while merging GSTR-3B files. {e}")
+        return output_path, final_result_points
 
 def calculate_interest(interest_matrix):
     print(f"Starting with interest calculation, length of Interest matrix: {len(interest_matrix)}")
@@ -139,9 +142,9 @@ def calculate_interest(interest_matrix):
             # Sum 7th, 8th and 9th columns (Tax paid in cash, Interest paid in cash, Late fee paid in cash)
             tax_paid_in_cash = pd.to_numeric(table_6_1.iloc[:, 6], errors='coerce').fillna(0).sum()
             interest_paid_in_cash = pd.to_numeric(table_6_1.iloc[:, 7], errors='coerce').fillna(0).sum()
-            late_fee_paid_in_cash = pd.to_numeric(table_6_1.iloc[:, 8], errors='coerce').fillna(0).sum()
+            # late_fee_paid_in_cash = pd.to_numeric(table_6_1.iloc[:, 8], errors='coerce').fillna(0).sum()
             calculated_interest = ((tax_paid_in_cash * days_late) / 365) * 0.18 if days_late > 0 else 0
-            interest_due = calculated_interest - interest_paid_in_cash - late_fee_paid_in_cash
+            interest_due = calculated_interest - interest_paid_in_cash
 
             records.append([
                 financial_year,
@@ -150,9 +153,9 @@ def calculate_interest(interest_matrix):
                 due_date.strftime("%d-%m-%Y"),
                 days_late,
                 round(tax_paid_in_cash, 2),
-                round(interest_paid_in_cash, 2),
-                round(late_fee_paid_in_cash, 2),
                 round(calculated_interest, 2),
+                round(interest_paid_in_cash, 2),
+                # round(late_fee_paid_in_cash, 2),
                 round(interest_due, 2)
             ])
         except Exception as e:
