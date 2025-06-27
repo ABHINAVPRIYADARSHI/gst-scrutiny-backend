@@ -2,6 +2,12 @@ from datetime import date
 import re
 
 OLD_TABLE_POSITIONS_GSTR_3B = {
+    "2": {
+        "start_row": 7,  # Excel row 8
+        "end_row": 12,  # Excel row 13
+        "start_col": 0,  # Column A
+        "end_col": 1  # Column B
+    },
     "3.1": {
         "start_row": 15,  # Excel row 16
         "end_row": 20,  # Excel row 21
@@ -40,6 +46,12 @@ OLD_TABLE_POSITIONS_GSTR_3B = {
     },
 }
 NEW_TABLE_POSITIONS_GSTR_3B = {
+    "2": {
+        "start_row": 6,  # Excel row 7
+        "end_row": 10,  # Excel row 11
+        "start_col": 0,  # Column A
+        "end_col": 1  # Column B
+    },
     "3.1": {
         "start_row": 13,  # Excel row 14
         "end_row": 18,  # Excel row 19
@@ -83,6 +95,12 @@ NEW_TABLE_POSITIONS_GSTR_3B = {
         "end_col": 8  # Column I
     },
 }
+
+late_fee_headers = [
+    "Financial Year", "Return Month", "Date of ARN", "Due Date", "Days Late",
+    "Late fee @ ₹100/per day", "Late fee applicable"
+]
+
 oldFormat = "OLD_FORMAT"
 newFormat = "NEW_FORMAT"
 diffInRCM_ITC = "diffInRCM_ITC"
@@ -90,22 +108,26 @@ estimatedITCReversal = "estimatedITCReversal"
 diffInRCMPayment = "diffInRCMPayment"
 ewb_in_MIS_report = "EWB_in_MIS_report_merged"
 ewb_out_MIS_report = "EWB_Out_MIS_report_merged"
+string_yes = "Yes"
+string_no = "No"
 int_zero = 0
 int_one = 1
 int_nine = 9
 int_eighteen = 18
 floating_zero = 0.00
+string_zero = "0.00"
 str_one = "1"
 str_two = "2"
+str_three_point_one = "3.1"
+str_four = "4"
 str_three_point_one_point_one = "3.1.1"
 str_six_point_one = "6.1"
-gstr1 = "GSTR-1",
-gstr2a = "GSTR-2A",
-gstr3b = "GSTR-3B"
-gstr9 = "GSTR-9",
-ewbIn = "EWB-IN",
-ewbOut = "EWB-OUT",
-bo_comparison = "BO_comparison"
+gstr1_analysis_dict = "gstr1_analysis_dict",
+gstr3b_analysis_dict = "gstr3b_analysis_dict"
+gstr3b_merged_dict = "gstr3b_merged_dict"
+ewb_in_analysis_dict = "ewb_in_analysis_dict",
+ewb_out_analysis_dict = "ewb_out_analysis_dict",
+bo_comparison_summary_dict = "bo_comparison_summary_dict"
 result_point_1 = "result_point_1"
 result_point_2 = "result_point_2"
 result_point_3 = "result_point_3"
@@ -126,6 +148,8 @@ result_point_17 = "result_point_17"
 result_point_18 = "result_point_18"
 result_point_19 = "result_point_19"
 result_point_20 = "result_point_20"
+result_point_21 = "result_point_21"
+result_point_22 = "result_point_22"
 
 
 def extract_table_with_header(df, table_key, table_positions):

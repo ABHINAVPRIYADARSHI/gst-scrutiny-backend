@@ -2,6 +2,7 @@ import os
 import pandas as pd
 from glob import glob
 import pdfplumber
+import datetime
 from tabulate import tabulate
 from utils.globals.constants import int_eighteen, clean_and_parse_number
 
@@ -20,7 +21,8 @@ table_header_rows_skip_gstr9_old_format = {
     7: 3,  # Table 7
     # 8: 0,  Part of Table 7 not required
     9: 3,  # Table 8
-    10: 3  # Table 9
+    10: 3,  # Table 9
+    11: 3  # Table 10, 11, 12 ,13
 }
 table_header_rows_skip_gstr9_new_format = {
     0: -1,
@@ -35,6 +37,7 @@ table_header_rows_skip_gstr9_new_format = {
     # 9 : 0,  Part of Table 7 not required
     10: 3,  # Table 8
     11: 3,  # Table 9
+    12: 3  # Table 10, 11, 12 ,13
 }
 table_position_in_useful_tables_gstr9 = {
     "Table_1": 0,
@@ -45,7 +48,8 @@ table_position_in_useful_tables_gstr9 = {
     "Table_6": 5,
     "Table_7_part_I": 6,
     "Table_8": 7,
-    "Table_9": 8
+    "Table_9": 8,
+    "Table_10_11_12_13": 9
 }
 
 
@@ -145,18 +149,37 @@ async def gstr9_pdf_reader(gstin):
         valuesFrom9["table_5_N2"] = table_5_N2
         print(f"Table_5_Part_II_row_N calculation done: {table_5_N2}")
 
+        # Calculate late fee
+        due_date_for_ITC = datetime.datetime.strptime("31/12/2022", "%d/%m/%Y").date()
+        table1 = useful_tables[table_position_in_useful_tables_gstr9["Table_1"]]
+        filing_date_str = table1.iloc[-1, -1]
+        filing_date = datetime.datetime.strptime(filing_date_str, "%d-%m-%Y").date()
+        if filing_date > due_date_for_ITC and table_5_N2 >= 20000000:
+            days_late = max((filing_date - due_date_for_ITC).days, 0)
+            calculated_late_fee = (100 * days_late)
+            quarter_percent_of_5N = round(0.0025 * table_5_N2, 2)
+            late_fee_gstr9_applicable = max(calculated_late_fee, quarter_percent_of_5N)
+        else:
+            late_fee_gstr9_applicable = 0.00
+        valuesFrom9['late_fee_gstr9_applicable'] = late_fee_gstr9_applicable
+        print(f" Late fee GSTR-9 calculation done: {late_fee_gstr9_applicable}")
+
         # 5. Table_6_row_H sum
         table_6 = useful_tables[table_position_in_useful_tables_gstr9["Table_6"]]
         row_h = table_6[table_6.iloc[:, 0] == 'H']  # Find row in table where first column is H.
-        sum_table6_row_H = pd.to_numeric(row_h.iloc[0, 2:], errors='coerce').sum(skipna=True)
-        valuesFrom9["sum_table6_row_H"] = sum_table6_row_H
-        print(f"Table_6_row_H calculation done: {sum_table6_row_H}")
+        valuesFrom9["table6_row_H_CGST"] = pd.to_numeric(row_h.iloc[0, 2], errors='coerce')
+        valuesFrom9["table6_row_H_SGST"] = pd.to_numeric(row_h.iloc[0, 3], errors='coerce')
+        valuesFrom9["table6_row_H_IGST"] = pd.to_numeric(row_h.iloc[0, 4], errors='coerce')
+        valuesFrom9["table6_row_H_CESS"] = pd.to_numeric(row_h.iloc[0, 5], errors='coerce')
+        print(f"Table_6_row_H calculation done.")
 
         # 6. Table_7_row_A
         table_7 = useful_tables[table_position_in_useful_tables_gstr9["Table_7_part_I"]]
-        sum_table7_row_A = pd.to_numeric(table_7.iloc[0, 2:], errors='coerce').sum(skipna=True)
-        valuesFrom9["sum_table7_row_A"] = sum_table7_row_A
-        print(f"Table_7_row_A Rule 37 calculation done: {sum_table7_row_A}")
+        valuesFrom9["table7_row_A_CGST"] = pd.to_numeric(table_7.iloc[0, 2], errors='coerce')
+        valuesFrom9["table7_row_A_SGST"] = pd.to_numeric(table_7.iloc[0, 3], errors='coerce')
+        valuesFrom9["table7_row_A_IGST"] = pd.to_numeric(table_7.iloc[0, 4], errors='coerce')
+        valuesFrom9["table7_row_A_CESS"] = pd.to_numeric(table_7.iloc[0, 5], errors='coerce')
+        print(f"Table_7_row_A Rule 37 calculation done.")
 
         # 7. Table_7_row_C
         # row_values_7C = table_7.iloc[2, 2:].apply(lambda x: str(x).replace(',', '').strip())
@@ -173,7 +196,7 @@ async def gstr9_pdf_reader(gstin):
         table_8_D4 = table_8.iloc[3, 4]
         table_8_D5 = table_8.iloc[3, 5]
         sum_table8_row_D = pd.to_numeric(table_8.iloc[3, 2:], errors='coerce').sum(skipna=True)
-        valuesFrom9.update({"table_8_D1": table_8_D1, "table_8_D1": table_8_D1, "table_8_D2": table_8_D2,
+        valuesFrom9.update({"table_8_D1": table_8_D1, "table_8_D2": table_8_D2,
                             "table_8_D3": table_8_D3, "table_8_D4": table_8_D4, "table_8_D5": table_8_D5,
                             "sum_table8_row_D": sum_table8_row_D})
         print(f"Table_8_row_D calculation done: {sum_table8_row_D}")
@@ -207,6 +230,21 @@ async def gstr9_pdf_reader(gstin):
                             "paid_through_ITC_T9": paid_through_ITC_T9})
         print(f"Table 9 calculation done: 1. Tax payable: {tax_payable_T9} "
               f"2. Paid through cash: {paid_through_cash_T9} 3. Paid through ITC: {paid_through_ITC_T9}")
+
+        # 10. Tax payable table 9.
+        valuesFrom9["tax_payable_table9_IGST"] = pd.to_numeric(table_9.iloc[0, 2], errors='coerce')
+        valuesFrom9["tax_payable_table9_CGST"] = pd.to_numeric(table_9.iloc[1, 2], errors='coerce')
+        valuesFrom9["tax_payable_table9_SGST"] = pd.to_numeric(table_9.iloc[2, 2], errors='coerce')
+        valuesFrom9["tax_payable_table9_CESS"] = pd.to_numeric(table_9.iloc[3, 2], errors='coerce')
+        # print(f"Tax payable Table 9 IGST: {valuesFrom9['tax_payable_table9_IGST']}")
+
+        # 11. Table 13 (IGST, CGST, SGST, Cess)
+        table_10_11_12_13 = useful_tables[table_position_in_useful_tables_gstr9["Table_10_11_12_13"]]
+        valuesFrom9["table_13_1"] = table_10_11_12_13.iloc[3, 1]
+        valuesFrom9["table_13_CGST"] = table_10_11_12_13.iloc[3, 3]
+        valuesFrom9["table_13_SGST"] = table_10_11_12_13.iloc[3, 4]
+        valuesFrom9["table_13_IGST"] = table_10_11_12_13.iloc[3, 5]
+        valuesFrom9["table_13_CESS"] = table_10_11_12_13.iloc[3, 6]
         print(" === ✅ Returning after successful execution of file gstr9_pdf_reader.py ===")
         return valuesFrom9
     except Exception as e:

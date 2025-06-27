@@ -125,11 +125,11 @@ async def generate_master(gstn: str = Form(...)):
 
 @app.get("/reports/")
 def list_reports(gstn: str = Query(...)):
-    gstn_folder = os.path.join(REPORTS_BASE_PATH, gstn)
-    if not os.path.exists(gstn_folder):
+    reports = os.path.join(REPORTS_BASE_PATH, gstn)
+    if not os.path.exists(reports):
         return JSONResponse(status_code=404, content={"detail": "No reports found."})
 
-    files = [f for f in os.listdir(gstn_folder) if f.endswith(".xlsx")]
+    files = [f for f in os.listdir(reports)]
     return {"reports": files}
 
 

@@ -10,7 +10,7 @@ async def generate_ewb_out_merged(input_dir, output_dir):
     xls_files = glob(os.path.join(input_dir, '*.xls'))
     all_files = xlsx_files + xls_files
     if not all_files:
-        raise FileNotFoundError("No EWB-OUT Excel files found in the input directory.")
+        raise FileNotFoundError(" ❌ No EWB-OUT Excel files found in the input directory.")
     print(f"[EWB-Out_merged.py] Found {len(all_files)} Excel files to merge.")
 
     merged_df = None

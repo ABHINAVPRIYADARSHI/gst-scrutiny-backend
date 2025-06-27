@@ -1,10 +1,7 @@
-from openpyxl import Workbook
-from utils.globals.constants import estimatedITCReversal, result_point_9, result_point_14, result_point_3, \
-    result_point_7, result_point_19, result_point_20
-from utils.globals.constants import diffInRCMPayment
-from utils.globals.constants import diffInRCM_ITC
+import pandas as pd
+
+from utils.globals.constants import result_point_15, result_point_16
 from .gstr3b_merged_reader import gstr3b_merged_reader
-from openpyxl.styles import Alignment
 
 
 async def generate_gstr3b_merged_analysis(gstin):
@@ -13,42 +10,67 @@ async def generate_gstr3b_merged_analysis(gstin):
     output_path = f"reports/{gstin}/GSTR-3B_analysis.xlsx"
     try:
         valuesFrom3b = await gstr3b_merged_reader(gstin)
-        # Create workbook and sheet
-        wb = Workbook()
+
+        final_result_points["gstin_of_taxpayer"] = valuesFrom3b["gstin_of_taxpayer"]
+        final_result_points["legal_name_of_taxpayer"] = valuesFrom3b["legal_name_of_taxpayer"]
+        final_result_points["trade_name_of_taxpayer"] = valuesFrom3b["trade_name_of_taxpayer"]
+
+        final_result_points["result_point_3_IGST"] = valuesFrom3b.get("diff_In_RCM_ITC_IGST")
+        final_result_points["result_point_3_CGST"] = valuesFrom3b.get("diff_In_RCM_ITC_CGST")
+        final_result_points["result_point_3_SGST"] = valuesFrom3b.get("diff_In_RCM_ITC_SGST")
+        final_result_points["result_point_3_CESS"] = valuesFrom3b.get("diff_In_RCM_ITC_CESS")
+
+        final_result_points["result_point_7_IGST"] = valuesFrom3b.get("estimated_ITC_Reversal_IGST")
+        final_result_points["result_point_7_CGST"] = valuesFrom3b.get("estimated_ITC_Reversal_CGST")
+        final_result_points["result_point_7_SGST"] = valuesFrom3b.get("estimated_ITC_Reversal_SGST")
+        final_result_points["result_point_7_CESS"] = valuesFrom3b.get("estimated_ITC_Reversal_CESS")
+
+        final_result_points[result_point_15] = valuesFrom3b.get("table_3_1_a_c_e_taxable_value_sum")
+        final_result_points[result_point_16] = valuesFrom3b.get("table_3_1_a_c_e_taxable_value_sum")
+
+        final_result_points["result_point_20_IGST"] = valuesFrom3b.get("table_4A_row_4_IGST")
+        final_result_points["result_point_20_CGST"] = valuesFrom3b.get("table_4A_row_4_CGST")
+        final_result_points["result_point_20_SGST"] = valuesFrom3b.get("table_4A_row_4_SGST")
+        final_result_points["result_point_20_CESS"] = valuesFrom3b.get("table_4A_row_4_CESS")
+
+        final_result_points["result_point_21_IGST"] = valuesFrom3b.get("table_4A_row_1_IGST")
+        final_result_points["result_point_21_CGST"] = valuesFrom3b.get("table_4A_row_1_CGST")
+        final_result_points["result_point_21_SGST"] = valuesFrom3b.get("table_4A_row_1_SGST")
+        final_result_points["result_point_21_CESS"] = valuesFrom3b.get("table_4A_row_1_CESS")
+
         # Define sheet names for each pair
         sheet_names = ["Estimated Prop. ITC reversal", "Diif. in RCM ITC", "Diff. in RCM Payment"]
         # Define your data pairs
-        data_pairs = [
-            ("Estimated Proportionate ITC Reversal", valuesFrom3b.get(estimatedITCReversal)),
-            ("Difference in RCM ITC", valuesFrom3b.get(diffInRCM_ITC)),
-            ("Difference in RCM payment", valuesFrom3b.get(diffInRCMPayment))
-        ]
-        # Fill each sheet with one row
-        for idx, (sheet_name, (label, value)) in enumerate(zip(sheet_names, data_pairs)):
-            if idx == 0:
-                # Use default sheet for first item and rename it
-                ws = wb.active
-                ws.title = sheet_name
-            else:
-                ws = wb.create_sheet(title=sheet_name)
 
-            # Optional: set column width
-            ws.column_dimensions['A'].width = 20
-            ws.column_dimensions['B'].width = 20
+        df_est_ITC_reversal = pd.DataFrame([{
+            "IGST": valuesFrom3b["estimated_ITC_Reversal_IGST"],
+            "CGST": valuesFrom3b["estimated_ITC_Reversal_CGST"],
+            "SGST": valuesFrom3b["estimated_ITC_Reversal_SGST"],
+            "CESS": valuesFrom3b["estimated_ITC_Reversal_CESS"]
+        }])
 
-            # Write label and rounded value
-            ws.cell(row=1, column=1, value=label).alignment = Alignment(wrap_text=True)
-            ws.cell(row=1, column=2, value=round(value, 2))
+        df_diff_In_RCM_ITC = pd.DataFrame([{
+            "IGST": valuesFrom3b["diff_In_RCM_ITC_IGST"],
+            "CGST": valuesFrom3b["diff_In_RCM_ITC_CGST"],
+            "SGST": valuesFrom3b["diff_In_RCM_ITC_SGST"],
+            "CESS": valuesFrom3b["diff_In_RCM_ITC_CESS"]
+        }])
+
+        df_diff_In_RCM_Pay = pd.DataFrame([{
+            "IGST": valuesFrom3b["diff_In_RCM_Pay_IGST"],
+            "CGST": valuesFrom3b["diff_In_RCM_Pay_CGST"],
+            "SGST": valuesFrom3b["diff_In_RCM_Pay_SGST"],
+            "CESS": valuesFrom3b["diff_In_RCM_Pay_CESS"]
+        }])
+
+        with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+            df_est_ITC_reversal.to_excel(writer, sheet_name="Estimated Prop. ITC Reversal", index=False)
+            df_diff_In_RCM_ITC.to_excel(writer, sheet_name="Difference in RCM ITC", index=False)
+            df_diff_In_RCM_Pay.to_excel(writer, sheet_name="Difference in RCM payment", index=False)
 
         # Save the workbook
-        wb.save(output_path)
         print(f"Excel file saved to: {output_path}")
         print(" === ✅ Returning after successful execution of file gstr3b_analysis.py ===")
-        final_result_points[result_point_3] = valuesFrom3b.get(diffInRCM_ITC)
-        final_result_points[result_point_7] = valuesFrom3b.get(estimatedITCReversal)
-        final_result_points[result_point_14] = valuesFrom3b.get("table_3_1_a+c+e_taxable_value")
-        final_result_points[result_point_19] = valuesFrom3b.get("sum_table_4A_row_4")
-        final_result_points[result_point_20] = valuesFrom3b.get("sum_table_4A_row_1")
         return final_result_points
     except Exception as e:
         print(f"[GSTR-3B Analysis] ❌ Error during analysis: {e}")

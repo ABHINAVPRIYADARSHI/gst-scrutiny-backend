@@ -1,21 +1,28 @@
 import os
-import pandas as pd
-from tabulate import tabulate
-from utils.globals.constants import result_point_5, result_point_14, result_point_19, result_point_20
 
-TAX_COL_NAMES = [
-    "Integrated Tax  (₹)",
-    "Central Tax (₹)",
-    "State/UT tax (₹)",
-    "Cess  (₹)"
-]
-ECOM_COL_NAMES = [8,9,10,11,12]
-TCS_COL_NAMES = [5,6,7,8]  # Cess is absent in both TDS & TCS merged tables
-TDS_COL_NAMES = [3,4,5,6]
+import pandas as pd
+from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
+
+from utils.globals.constants import result_point_15, result_point_16
+
+TAX_COL_NAMES = ["Integrated Tax  (₹)", "Central Tax (₹)", "State/UT tax (₹)", "Cess  (₹)"]
+ISD_COL_NAMES = ["Integrated Tax (₹)", "Central Tax (₹)", "State/UT Tax (₹)", "Cess (₹)"]
+IMPG_COL_NAMES = ["Integrated tax (₹)", "Central Tax (₹)", "State/UT Tax (₹)", "Cess  (₹)"]
+col_dict = {
+    "B2B_merged": TAX_COL_NAMES,
+    "ISD_merged": ISD_COL_NAMES,
+    "IMPG_merged": IMPG_COL_NAMES,
+    "IMPG SEZ_merged": IMPG_COL_NAMES
+}
+CDNR_MERGED_TAX_COL_NAMES = ["Integrated Tax (₹)", "Central Tax (₹)", "State Tax (₹)", "Cess Amount (₹)"]
+ECOM_COL_NAMES = [8, 9, 10, 11, 12]
+TCS_COL_NAMES = [5, 6, 7, 8]  # Cess is absent in both TDS & TCS merged tables
+TDS_COL_NAMES = [3, 4, 5, 6]
 HEADER_ROW = 2
 RATE_COL = 8   # Column I (zero-based)
-REVERSE_CHARGE_COL =7  # Column H
-CDNR_REVERSE_CHARGE_COL =8  # Column I
+REVERSE_CHARGE_COL = 7  # Column H
+CDNR_REVERSE_CHARGE_COL = 8  # Column I
 CDNR_NOTE_TYPE_COL = 2  # Column C
 CANCELLED_DATE_COL = 20  # Column U
 sheet_names = ["B2B_merged", "ISD_merged", "IMPG_merged", "IMPG SEZ_merged"]
@@ -48,7 +55,10 @@ async def generate_gstr2a_merged_analysis(gstin):
         # -- 2. B2B_merged sheet: Cancelled ITC Summary (CANCELLED_DATE_COL should not be empty)--
         itc_from_cancelled_taxpayers_B2B = df_B2B_merged[df_B2B_merged.iloc[:, CANCELLED_DATE_COL].notna()]
         itc_from_cancelled_taxpayers_B2B_merged = summarize_tax(itc_from_cancelled_taxpayers_B2B, TAX_COL_NAMES)
-        final_result_points[result_point_5] = itc_from_cancelled_taxpayers_B2B_merged.iloc[0, -1]
+        final_result_points["result_point_5_IGST"] = round(itc_from_cancelled_taxpayers_B2B_merged.iloc[0, 0], 2)
+        final_result_points["result_point_5_CGST"] = round(itc_from_cancelled_taxpayers_B2B_merged.iloc[0, 1], 2)
+        final_result_points["result_point_5_SGST"] = round(itc_from_cancelled_taxpayers_B2B_merged.iloc[0, 2], 2)
+        final_result_points["result_point_5_CESS"] = round(itc_from_cancelled_taxpayers_B2B_merged.iloc[0, 3], 2)
         print("Cancelled ITC Summary calculation completed.")
 
         # -- 3. ITC by Rate Summary (without grand total row) --
@@ -64,7 +74,7 @@ async def generate_gstr2a_merged_analysis(gstin):
         #       IMPG_SEZ_merged + Net of CDNR_merged where reverse_charge column = 'N' ). We assume that
         #       3rd row is the header and contains columns "Integrated Tax  (₹)", "Central Tax (₹)",
         #       "State/UT tax (₹)", "Cess (₹)"
-        print(f"Sheet Total ITC as per 2A calculation started.")
+        print("Sheet 'Total ITC as per 2A' calculation started.")
         summary_rows = []
         for sheet in sheet_names:
             print(f"Evaluating sheet: {sheet}")
@@ -77,16 +87,18 @@ async def generate_gstr2a_merged_analysis(gstin):
                 df = df[df.iloc[:, REVERSE_CHARGE_COL].astype(str).str.strip() == 'N']
             if not df.empty:
                 tax_sum = []
-                for col in TAX_COL_NAMES:
+                for col in col_dict[sheet]:
                     if col in df.columns:
-                        col_sum = pd.to_numeric(df[col], errors="coerce").sum()
+                        col_sum = pd.to_numeric(df[col], errors="coerce").sum(skipna=True)
                     else:
+                        print(f"Column: {col} missing in sheet: {sheet}")
                         col_sum = 0
                     tax_sum.append(col_sum)
             else:
                 tax_sum = [0] * len(TAX_COL_NAMES)
             # Optionally include the sheet name in the summary row
             summary_rows.append([sheet] + tax_sum)
+
         # CDNR = Credit Debit Note Regular
         print(f"Evaluating sheet: CDNR_merged")
         cdnr_raw = pd.read_excel(input_path, sheet_name="CDNR_merged", header=None)
@@ -94,28 +106,27 @@ async def generate_gstr2a_merged_analysis(gstin):
         cdnr_df.columns = cdnr_raw.iloc[HEADER_ROW]
         cdnr_df = cdnr_df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
         cdnr_df = cdnr_df[cdnr_df.iloc[:, CDNR_REVERSE_CHARGE_COL].astype(str).str.strip() == 'N']
+
         # First append debit note values. Later on append credit note values. Ensure that credit
         # note is the last row to be appended because that is subtracted.
-        debit_df = cdnr_df[cdnr_df.iloc[:, CDNR_NOTE_TYPE_COL].astype(str).str.strip() == 'D']
+        print(f"Evaluating Debit notes in sheet CDNR_merged")
+        debit_df = cdnr_df[cdnr_df.iloc[:, CDNR_NOTE_TYPE_COL].astype(str).str.strip() == 'Debit note']
         if not debit_df.empty:
-            tax_sum = debit_df[TAX_COL_NAMES].apply(pd.to_numeric, errors="coerce").sum().tolist()
+            tax_sum = debit_df[CDNR_MERGED_TAX_COL_NAMES].apply(pd.to_numeric, errors="coerce").sum().tolist()
         else:
-            tax_sum = [0] * len(TAX_COL_NAMES)
+            tax_sum = [0] * len(CDNR_MERGED_TAX_COL_NAMES)
         summary_rows.append(["Debit Note"] + tax_sum)
-        credit_df = cdnr_df[cdnr_df.iloc[:, CDNR_NOTE_TYPE_COL].astype(str).str.strip() == 'C']
+
+        print(f"Evaluating Credit notes in sheet CDNR_merged")
+        credit_df = cdnr_df[cdnr_df.iloc[:, CDNR_NOTE_TYPE_COL].astype(str).str.strip() == 'Credit note']
         if not credit_df.empty:
-            tax_sum = credit_df[TAX_COL_NAMES].apply(pd.to_numeric, errors="coerce").sum().tolist()
+            tax_sum = credit_df[CDNR_MERGED_TAX_COL_NAMES].apply(pd.to_numeric, errors="coerce").sum().tolist()
         else:
-            tax_sum = [0] * len(TAX_COL_NAMES)
+            tax_sum = [0] * len(CDNR_MERGED_TAX_COL_NAMES)
         summary_rows.append(["Credit Note"] + tax_sum)
         summary_df = pd.DataFrame(summary_rows, columns=["Sheet Name", TAX_COL_NAMES[0], TAX_COL_NAMES[1],
                                                          TAX_COL_NAMES[2], TAX_COL_NAMES[3]])
-        isd_total = summary_df.loc[summary_df["Sheet Name"] == "ISD_merged", TAX_COL_NAMES].astype(float).sum(axis=1).values[0]
-        impg_total = summary_df.loc[summary_df["Sheet Name"] == "IMPG_merged", TAX_COL_NAMES].astype(float).sum(axis=1).values[0]
-        impg_sez_total = summary_df.loc[summary_df["Sheet Name"] == "IMPG SEZ_merged", TAX_COL_NAMES].astype(float).sum(axis=1).values[0]
-        impg_and_impg_sez_total = impg_total + impg_sez_total
-        final_result_points[result_point_19] = isd_total
-        final_result_points[result_point_20] = impg_and_impg_sez_total
+
         # debit note values are added, credit note values are subtracted
         # Separate credit note values (last row)
         credit_note_values = summary_df.iloc[-1][TAX_COL_NAMES].apply(pd.to_numeric, errors="coerce")
@@ -125,9 +136,26 @@ async def generate_gstr2a_merged_analysis(gstin):
         final_total = all_except_credit - credit_note_values
         # Append Total row
         summary_df.loc[len(summary_df.index)] = ["Total"] + final_total.tolist()
-        print("Total ITC as per 2A calculation completed.")
+        print("Sheet 'Total ITC as per 2A' calculation completed.")
+
+        isd_row = summary_df.loc[summary_df["Sheet Name"] == "ISD_merged", TAX_COL_NAMES].iloc[0]
+        final_result_points["result_point_20_IGST"] = isd_row.iloc[0]
+        final_result_points["result_point_20_CGST"] = isd_row.iloc[1]
+        final_result_points["result_point_20_SGST"] = isd_row.iloc[2]
+        final_result_points["result_point_20_CESS"] = isd_row.iloc[3]
+        print("Result point 20 set.")
+
+        impg_total = summary_df.loc[summary_df["Sheet Name"] == "IMPG_merged", TAX_COL_NAMES].astype(float).iloc[0]
+        impg_sez_total = summary_df.loc[summary_df["Sheet Name"] == "IMPG SEZ_merged", TAX_COL_NAMES].astype(float).iloc[0]
+        impg_and_impg_sez_total = impg_total + impg_sez_total
+        final_result_points["result_point_21_IGST"] = impg_and_impg_sez_total.iloc[0]
+        final_result_points["result_point_21_CGST"] = impg_and_impg_sez_total.iloc[1]
+        final_result_points["result_point_21_SGST"] = impg_and_impg_sez_total.iloc[2]
+        final_result_points["result_point_21_CESS"] = impg_and_impg_sez_total.iloc[3]
+        print("Result point 21 set.")
 
         # 5. Take full sheet ECOM_merged
+        print("Started processing sheet ECO_merged.")
         ecom_df_raw = pd.read_excel(input_path, sheet_name="ECO_merged", header=None)
         ecom_df = ecom_df_raw.iloc[HEADER_ROW + 1:].reset_index(drop=True)
         ecom_df.columns = ecom_df_raw.iloc[HEADER_ROW]
@@ -135,12 +163,14 @@ async def generate_gstr2a_merged_analysis(gstin):
         ecom_df = ecom_df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
         ecom_df = ecom_df.iloc[:, ECOM_COL_NAMES]
         ecom_df.columns.values[0] = "Taxable Value"
-        ecom_df_total_row = []
-        for i, col in enumerate(ecom_df.columns):
-            if i == 0:
-                ecom_df_total_row.append('TOTAL')  # First column = label
-            else:
-                ecom_df_total_row.append(ecom_df[col].astype(float).sum())  # Sum each column
+        ecom_df.insert(0, "Label", "")
+        ecom_df_total_row = ["TOTAL"]
+        for col in ecom_df.columns[1:]:
+            try:
+                total = ecom_df[col].astype(float).sum()
+            except ValueError:
+                total = ""
+            ecom_df_total_row.append(total)
         ecom_df_total_row = pd.DataFrame([ecom_df_total_row], columns=ecom_df.columns)  # Append total row
         ecom_df = pd.concat([ecom_df, ecom_df_total_row], ignore_index=True)
         print("ECOM_merged calculation completed.")
@@ -164,7 +194,7 @@ async def generate_gstr2a_merged_analysis(gstin):
         tcs_df_total_row = pd.DataFrame([tcs_df_total_row], columns=tcs_df.columns)
         tcs_df = pd.concat([tcs_df, tcs_df_total_row], ignore_index=True)
         tcs_taxable_value_total = tcs_df["Taxable Value"].iloc[-1]
-        final_result_points[result_point_14] = tcs_taxable_value_total
+        final_result_points[result_point_16] = tcs_taxable_value_total
 
         print("TCS_merged calculation completed.")
 
@@ -187,7 +217,7 @@ async def generate_gstr2a_merged_analysis(gstin):
         tds_df_total_row = pd.DataFrame([tds_df_total_row], columns=tds_df.columns)
         tds_df = pd.concat([tds_df, tds_df_total_row], ignore_index=True)
         tds_taxable_value_total = tds_df["Taxable Value"].iloc[-1]
-        final_result_points[result_point_14] = tds_taxable_value_total
+        final_result_points[result_point_15] = tds_taxable_value_total
         print("TDS_merged calculation completed.")
 
         # -- Save all summaries to Excel --
@@ -201,7 +231,18 @@ async def generate_gstr2a_merged_analysis(gstin):
             ecom_df.to_excel(writer, index= False, sheet_name="Total ECOM merged")
             tds_df.to_excel(writer, index= False, sheet_name="Total TDS merged")
             tcs_df.to_excel(writer, index= False, sheet_name="Total TCS merged")
+
+            # Apply formatting to all sheets
+            workbook = writer.book
+            for sheet_name in workbook.sheetnames:
+                worksheet = workbook[sheet_name]
+                for col_idx, col in enumerate(worksheet.iter_cols(min_row=1, max_row=worksheet.max_row), start=1):
+                    col_letter = get_column_letter(col_idx)
+                    worksheet.column_dimensions[col_letter].width = 25  # Set column width
+                    for cell in col:
+                        cell.alignment = Alignment(wrap_text=True)  # Enable word wrap
         print(f"[GSTR-2A Analysis] ✅ Summary report generated at: {output_path}")
+
         return final_result_points
     except Exception as e:
         print(f"[GSTR-2A Analysis] ❌ Error during analysis: {e}")
