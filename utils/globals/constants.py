@@ -1,7 +1,14 @@
 from datetime import date
 import re
 
+# Table position starts with Table header and not the first row of table.
 OLD_TABLE_POSITIONS_GSTR_3B = {
+    "1": {
+        "start_row": 2,  # Excel row 3
+        "end_row": 4,  # Excel row 5
+        "start_col": 0,  # Column A
+        "end_col": 1  # Column B
+    },
     "2": {
         "start_row": 7,  # Excel row 8
         "end_row": 12,  # Excel row 13
@@ -46,51 +53,57 @@ OLD_TABLE_POSITIONS_GSTR_3B = {
     },
 }
 NEW_TABLE_POSITIONS_GSTR_3B = {
+    "1": {
+        "start_row": 2,  # Excel row 3
+        "end_row": 4,  # Excel row 5
+        "start_col": 0,  # Column A
+        "end_col": 1  # Column B
+    },
     "2": {
-        "start_row": 6,  # Excel row 7
-        "end_row": 10,  # Excel row 11
+        "start_row": 7,  # Excel row 8
+        "end_row": 12,  # Excel row 13
         "start_col": 0,  # Column A
         "end_col": 1  # Column B
     },
     "3.1": {
-        "start_row": 13,  # Excel row 14
-        "end_row": 18,  # Excel row 19
+        "start_row": 15,  # Excel row 16
+        "end_row": 20,  # Excel row 21
         "start_col": 0,  # Column A
         "end_col": 5  # Column F
     },
     "3.1.1": {
-        "start_row": 21,  # Excel row 22
-        "end_row": 23,  # Excel row 24
+        "start_row": 23,  # Excel row 24
+        "end_row": 25,  # Excel row 26
         "start_col": 0,  # Column A
         "end_col": 5  # Column F
     },
     "3.2": {
-        "start_row": 26,  # Excel row 27
-        "end_row": 29,  # Excel row 30
+        "start_row": 28,  # Excel row 29
+        "end_row": 31,  # Excel row 32
         "start_col": 0,  # Column A
         "end_col": 2  # Column C
     },
     "4": {
-        "start_row": 32,  # Excel row 33
-        "end_row": 45,  # Excel row 46
+        "start_row": 34,  # Excel row 35
+        "end_row": 47,  # Excel row 48
         "start_col": 0,  # Column A
         "end_col": 4  # Column E
     },
     "5": {
-        "start_row":48,  # Excel row 49
-        "end_row": 50,  # Excel row 51
+        "start_row": 51,  # Excel row 52
+        "end_row": 53,  # Excel row 54
         "start_col": 0,  # Column A
         "end_col": 2  # Column C
     },
     "5.1": {
-        "start_row": 53,  # Excel row 54
-        "end_row": 56,  # Excel row 57
+        "start_row": 56,  # Excel row 57
+        "end_row": 59,  # Excel row 60
         "start_col": 0,  # Column A
         "end_col": 4  # Column E
     },
     "6.1": {
-        "start_row": 59,  # Excel row 60
-        "end_row": 69,  # Excel row 70
+        "start_row": 62,  # Excel row 63
+        "end_row": 72,  # Excel row 73
         "start_col": 0,  # Column A
         "end_col": 8  # Column I
     },
@@ -151,6 +164,10 @@ result_point_20 = "result_point_20"
 result_point_21 = "result_point_21"
 result_point_22 = "result_point_22"
 
+financial_year_2022_23 = "2022-23"
+financial_year_2023_24 = "2023-24"
+financial_year_2024_25 = "2024-25"
+
 
 def extract_table_with_header(df, table_key, table_positions):
     pos = table_positions[table_key]
@@ -174,22 +191,28 @@ def convert_to_number(value):
         return value  # Leave as-is if not convertible
 
 
+month_lookup = {
+    'April': 4, 'Apr': 4, 'May': 5,
+    'June': 6, 'Jun': 6, 'July': 7, 'Jul': 7,
+    'August': 8, 'Aug': 8, 'September': 9, 'Sep': 9,
+    'October': 10, 'Oct': 10, 'November': 11, 'Nov': 11,
+    'December': 12, 'Dec': 12, 'January': 1, 'Jan': 1,
+    'February': 2, 'Feb': 2, 'March': 3, 'Mar': 3
+}
+
+
+# Convert "April", "May", etc. and "2021-22" to datetime
 def parse_month_year(month_name, financial_year):
-    # Convert "April", "May", etc. and "2021-22" to datetime
-    month_lookup = {
-        'April': 4, 'Apr': 4, 'May': 5,
-        'June': 6, 'Jun': 6, 'July': 7, 'Jul': 7,
-        'August': 8, 'Aug': 8, 'September': 9, 'Sep': 9,
-        'October': 10, 'Oct': 10, 'November': 11, 'Nov': 11,
-        'December': 12, 'Dec': 12, 'January': 1, 'Jan': 1,
-        'February': 2, 'Feb': 2, 'March': 3, 'Mar': 3
-    }
-    if '-' in month_name:      # If month_name has '-', take second part
-        month_name = month_name.split('-')[-1].strip()
-    month_num = month_lookup[month_name]
+    month_num = parse_month(month_name)
     fy_start_year = int(financial_year.split('-')[0])
     year = fy_start_year if month_num >= 4 else fy_start_year + 1
     return date(year, month_num, 1)
+
+
+def parse_month(month_name):
+    if '-' in month_name:  # If month_name has '-', take second part
+        month_name = month_name.split('-')[-1].strip()
+    return month_lookup[month_name]
 
 
 def clean_and_parse_number(text):

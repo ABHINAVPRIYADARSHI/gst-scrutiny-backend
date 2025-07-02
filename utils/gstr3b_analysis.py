@@ -5,7 +5,7 @@ from .gstr3b_merged_reader import gstr3b_merged_reader
 
 
 async def generate_gstr3b_merged_analysis(gstin):
-    print(" === Starting execution of file gstr3B_analysis.py ===")
+    print(f"[GSTR-3B Analysis] Starting execution of file gstr3B_analysis.py ===")
     final_result_points = {}
     output_path = f"reports/{gstin}/GSTR-3B_analysis.xlsx"
     try:
@@ -14,7 +14,7 @@ async def generate_gstr3b_merged_analysis(gstin):
         final_result_points["gstin_of_taxpayer"] = valuesFrom3b["gstin_of_taxpayer"]
         final_result_points["legal_name_of_taxpayer"] = valuesFrom3b["legal_name_of_taxpayer"]
         final_result_points["trade_name_of_taxpayer"] = valuesFrom3b["trade_name_of_taxpayer"]
-
+        final_result_points["financial_year"] = valuesFrom3b["financial_year"]
         final_result_points["result_point_3_IGST"] = valuesFrom3b.get("diff_In_RCM_ITC_IGST")
         final_result_points["result_point_3_CGST"] = valuesFrom3b.get("diff_In_RCM_ITC_CGST")
         final_result_points["result_point_3_SGST"] = valuesFrom3b.get("diff_In_RCM_ITC_SGST")

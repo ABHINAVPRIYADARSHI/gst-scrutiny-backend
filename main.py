@@ -36,6 +36,7 @@ app.add_middleware(
 # Reports directory
 REPORTS_BASE_PATH = "reports"
 
+
 # === Resolve build/static paths (for both normal and exe/frozen) ===
 def get_build_path():
     if getattr(sys, 'frozen', False):
@@ -115,9 +116,11 @@ def delete_file(gstn: str, return_type: str, filename: str):
     return JSONResponse(status_code=404, content={"error": "File not found."})
 
 
-@app.post("/generate_master/")
-async def generate_master(gstn: str = Form(...)):
-    generated_reports = await generate_merged_excel_and_analysis_report(gstn)
+@app.post("/generate_reports/")
+async def generate_master(gstn: str = Form(...),
+                          include_ASMT_10_report: str = Form("false")):  # Default to "false" if not provided
+    report_flag = include_ASMT_10_report.lower() == "true"
+    generated_reports = await generate_merged_excel_and_analysis_report(gstn, report_flag)
     if not generated_reports:
         raise HTTPException(status_code=404, detail="No reports generated for any return type")
     return JSONResponse(content={"status": "completed", "reports": generated_reports})

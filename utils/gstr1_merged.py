@@ -9,13 +9,16 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
+from utils.globals.constants import parse_month_year, late_fee_headers, parse_month
 
-from utils.globals.constants import parse_month_year, late_fee_headers
+financial_year_2021_22 = "2021-22"
+special_months = [11, 12, 1, 2, 3]
 
 
 async def generate_gstr1_merged(input_dir, output_dir):
-    print(f"Started execution of method generate_gstr1_merged for: {input_dir}")
+    print(f"[GSTR-1_merged] Started execution of method generate_gstr1_merged for: {input_dir}")
     final_result_points = {}
+    output_path = None
 
     try:
         excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
@@ -105,6 +108,7 @@ async def generate_gstr1_merged(input_dir, output_dir):
         return output_path, final_result_points
 
 
+#  Parameter 12 of ASMT-10 report
 def calculate_late_fee(list_of_dataframes):
     print(f"[GSTR-1_merged] Starting late fee calculation, number of months: {len(list_of_dataframes)}")
     records = []
@@ -117,10 +121,17 @@ def calculate_late_fee(list_of_dataframes):
             filing_date_str = entry.iloc[6, 1]
             filing_date = datetime.datetime.strptime(filing_date_str, "%d-%m-%Y").date()
 
-            # Due date = 11th of next month of return_month
+            # Due date for FY 2021-22 is 13th of next month for return months Nov, Dec, Jan, Feb, Mar
+            # else Due date = 11th of next month
+            if financial_year == financial_year_2021_22 and parse_month(return_month) in special_months:
+                print(f"[GSTR-1] Late fee calculation: Setting due day as 13th of next month for month: {return_month}, year: {financial_year}")
+                day = 13
+            else:
+                print(f"[GSTR-1] Late fee calculation: Setting due day as 11th of next month for month: {return_month}, year: {financial_year}")
+                day = 11
             return_month_date = parse_month_year(return_month, financial_year)
-            due_date = (return_month_date + relativedelta(months=1)).replace(day=11)
-
+            due_date = (return_month_date + relativedelta(months=1)).replace(day=day)
+            print(f"Due date: {due_date}")
             days_late = max((filing_date - due_date).days, 0)
             calculated_late_fee = 100 * days_late
             late_fee_applicable = min(calculated_late_fee, 5000)

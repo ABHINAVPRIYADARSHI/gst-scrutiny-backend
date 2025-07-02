@@ -1,6 +1,7 @@
 import os
 
 from .asmt_report_generator import asmt_10_report_generator
+from .general_report_generator import general_analysis_report_generator
 from .bo_comparison_summary_analysis import generate_bo_comparison_summary_analysis
 from .ewb_in_merged import generate_ewb_in_merged
 from .ewb_in_merged_analysis import generate_ewb_in_merged_analysis
@@ -17,16 +18,20 @@ from .gstr9_Vs_3B_analysis import generate_gstr9_Vs_3B_analysis
 return_types = ["GSTR-1", "GSTR-2A", "GSTR-3B", "EWB-IN", "EWB-OUT"]
 
 
-async def generate_merged_excel_and_analysis_report(gstin):
-    master_dict = {}   # Analysis points gathered to populate ASTM-10 sheet
+async def generate_merged_excel_and_analysis_report(gstin, report_flag):
+    master_dict = {'details_of_taxpayer': {'gstin_of_taxpayer': gstin}}  # Analysis points gathered to populate ASTM-10 sheet
     generated_reports = []   # List of merged files generated
     generated_reports = await generate_merged_excel_for_return_types(gstin, generated_reports, master_dict)
-    await generate_analysis_reports(gstin, master_dict)
-    await asmt_10_report_generator(gstin, master_dict)
+    print(f"[Master Generator] Starting with analysis of merged reports for GSTIN: {gstin}")
+    await generate_return_type_reports(gstin, master_dict)
+    await general_analysis_report_generator(gstin, master_dict)
+    if report_flag:
+        await asmt_10_report_generator(gstin, master_dict)
+    print(f"generated_reports: {generated_reports}")
     return generated_reports
 
 
-async def generate_analysis_reports(gstin, master_dict):
+async def generate_return_type_reports(gstin, master_dict):
     gstr1_analysis_dict = await generate_gstr1_merged_analysis(gstin)
     gstr2a_analysis_dict = await generate_gstr2a_merged_analysis(gstin)
     gstr3b_analysis_dict = await generate_gstr3b_merged_analysis(gstin)
@@ -52,7 +57,7 @@ async def generate_analysis_reports(gstin, master_dict):
 
 
 async def generate_merged_excel_for_return_types(gstin, generated_reports, master_dict):
-    print(f"=== Starting execution of function generate_merged_excel_for_return_types for GSTIN: {gstin} ===")
+    print(f"[Master Generator] Starting execution of function generate_merged_excel_for_return_types for GSTIN: {gstin} ===")
     for rt in return_types:
         input_dir = f"uploaded_files/{gstin}/{rt}"
         output_dir = f"reports/{gstin}/"
@@ -69,8 +74,8 @@ async def generate_merged_excel_for_return_types(gstin, generated_reports, maste
                     generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
                     master_dict["gstr1_merged_dict"] = dict_1_merged
                 case "GSTR-2A":
-                    await generate_gstr2a_merged(input_dir, output_dir)
-                    generated_reports.append({"return_type": rt, "report": output_file})
+                    output_file = await generate_gstr2a_merged(input_dir, output_dir)
+                    generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
                 case "GSTR-3B":
                     output_file, dict_3b_merged = await generate_gstr3b_merged(input_dir, output_dir)
                     generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
@@ -79,10 +84,10 @@ async def generate_merged_excel_for_return_types(gstin, generated_reports, maste
                 #      We don't merge GSTR-9, we directly analyse it as its a single file.
                 case "EWB-IN":
                     output_file = await generate_ewb_in_merged(input_dir, output_dir)
-                    generated_reports.append({"return_type": rt, "report": output_file})
+                    generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
                 case "EWB-OUT":
                     output_file = await generate_ewb_out_merged(input_dir, output_dir)
-                    generated_reports.append({"return_type": rt, "report": output_file})
+                    generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
                 case _:
                     print(f" Not a valid return type  {rt}")
         except Exception as e:

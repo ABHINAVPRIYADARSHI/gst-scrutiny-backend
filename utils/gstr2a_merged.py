@@ -77,7 +77,7 @@ def copy_header_with_styles(source_ws, target_ws, header_rows):
 
 
 async def generate_gstr2a_merged(input_dir, output_dir):
-    print(f"Started execution of method generate_gstr2a_merged for: {input_dir}")
+    print(f"[GSTR-2A] Started execution of method generate_gstr2a_merged for: {input_dir}")
 
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
@@ -157,5 +157,5 @@ async def generate_gstr2a_merged(input_dir, output_dir):
             readme_ws.append(row)
 
     merged_wb.save(output_path)
-    print(f"✅ GSTR-2A merged Excel saved to: {output_path}")
+    print(f"✅ [GSTR-2A] merged Excel saved to: {output_path}")
     return output_path

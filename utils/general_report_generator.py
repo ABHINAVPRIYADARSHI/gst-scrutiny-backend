@@ -7,16 +7,24 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
-from utils.globals.constants import string_zero, string_yes
-from utils.globals.report_constants import rupee_symbol, bo_cs_NA, gstr3b_analysis_NA, gstr2a_analysis_NA, gstr9_NA, \
-    ewb_out_analysis_NA, gstr3b_merged_NA, gstr1_merged_NA, gstr1_analysis_NA, col_2_values, col_4_values
+from .globals.constants import string_zero, result_point_14, string_yes
+from .globals.report_constants import col_2_values, col_4_values
+from .globals.report_constants import rupee_symbol, bo_cs_NA, gstr3b_analysis_NA, gstr2a_analysis_NA, gstr9_NA, \
+    ewb_out_analysis_NA, gstr3b_merged_NA, gstr1_merged_NA, gstr1_analysis_NA
 
 
-async def asmt_10_report_generator(gstin, master_dict):
-    print(f"[ASMT-10 report generator] Started execution of method asmt_10_report_generator for: {gstin} ===")
-    doc_name = gstin + '_ASMT_10_REPORT.docx'
+async def general_analysis_report_generator(gstin, master_dict):
+    print(f"[General report generator] Started execution of method general_analysis_report_generator for: {gstin} ===")
+    doc_name = f"{gstin}_GENERAL_REPORT.docx"
     output_path = f"reports/{gstin}/"
     try:
+        print(f"Printing master dict: ")
+        for outer_key, inner_dict in master_dict.items():
+            print(f"{outer_key}:")
+            for key, value in inner_dict.items():
+                print(f"  {key}: {value}")
+            print()  # add empty line between items
+
         os.makedirs(output_path, exist_ok=True)  # Create dirs if not exist
         output_path = os.path.join(output_path, doc_name)
 
@@ -25,7 +33,7 @@ async def asmt_10_report_generator(gstin, master_dict):
             gstin_of_taxpayer = master_dict.get('details_of_taxpayer', {}).get('gstin_of_taxpayer', '')
         legal_name_of_taxpayer = master_dict.get('gstr3b_analysis_dict', {}).get("legal_name_of_taxpayer", "")
         trade_name_of_taxpayer = master_dict.get('gstr3b_analysis_dict', {}).get("trade_name_of_taxpayer", "")
-        financial_year_from_3B = master_dict.get('gstr3b_analysis_dict', {}).get("financial_year", "  ")
+
         # Create document
         doc = Document()
         # Set margins (1 inch all sides)
@@ -37,7 +45,7 @@ async def asmt_10_report_generator(gstin, master_dict):
             section.right_margin = Inches(0.5)
 
         # Add Heading
-        heading = doc.add_paragraph('FORM GST ASMT-10')
+        heading = doc.add_paragraph('General Analysis Report')
         heading.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         run = heading.runs[0]
         run.bold = True
@@ -59,34 +67,11 @@ async def asmt_10_report_generator(gstin, master_dict):
         borders.append(bottom)
         pPr.append(borders)
 
-        # Add Sub-heading
-        sub_heading = doc.add_paragraph(
-            'Notice for Intimation of Discrepancy in Return after Scrutiny\n[See rule 100(1)]')
-        sub_heading.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-
         # Add To Address
         doc.add_paragraph(
-            f'\nTo\n{trade_name_of_taxpayer}'
             f'\nGSTIN: {gstin_of_taxpayer}'
             f'\nLegal Name: {legal_name_of_taxpayer}'
             f'\nTrade Name: {trade_name_of_taxpayer}')
-
-        # Add Subject
-        doc.add_paragraph(
-            '\nSubject: Discrepancies noticed under Section 61 read with Rule 100 of CGST Rules, 2017 – Notice for '
-            'explanation')
-
-        # Add Dear Taxpayer paragraph
-        doc.add_paragraph(
-            '\nDear Taxpayer,\n\n'
-            f'During scrutiny of your returns furnished for the period FY {financial_year_from_3B} under Section 61 of the CGST Act, '
-            '2017, '
-            'the following discrepancies have been noticed which may lead to tax short payment or wrong availment of '
-            'input tax credit.\n\n '
-            'You are requested to provide an explanation for the same, within 30 days from the date of this notice, '
-            'failing which '
-            'appropriate action may be initiated under the provisions of the CGST Act, 2017.\n'
-        )
 
         # Add table with headers
         table = doc.add_table(rows=2, cols=7)
@@ -147,31 +132,13 @@ async def asmt_10_report_generator(gstin, master_dict):
         while i < num_rows:
             row_cells = table.add_row().cells
             if i == 5:
-                row_cells[0].text = "5.1"    # Special row labeled '5.1'
+                row_cells[0].text = "5.1"  # Special row labeled '5.1'
             else:
-                row_cells[0].text = str(row_number)   # Normal row numbering
+                row_cells[0].text = str(row_number)  # Normal row numbering
                 row_number += 1  # Only increment on standard rows
             row_cells[1].text = col_2_values[i]
             row_cells[6].text = col_4_values[i]
             i += 1  # Always increment data index
-
-        # Add Closing paragraph
-        doc.add_paragraph(
-            '\nYou are requested to:\n'
-            '1. Furnish a reply electronically through your GST portal login under “View Additional Notices and '
-            'Orders”.\n\n '
-        )
-
-        # Issued by
-        para = doc.add_paragraph(
-            'Issued by:\n'
-            '[Name of Officer]\n'
-            'Designation: _______________\n'
-            'Office Address: _____________\n'
-            'Date: ___________\n'
-            'Place: __________'
-        )
-        para.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
         # Populate columns based on master_dict values
         table = doc.tables[0]  # Assuming the table is the first one in the document
@@ -414,13 +381,16 @@ async def asmt_10_report_generator(gstin, master_dict):
                     table.rows[row_pos].cells[2].text = rupee_symbol + str(abs(difference))
                 else:
                     table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
-                    print(f"Not accounted: Row 6 cell 3 value is +ve or 0.00: {difference}, replacing by 0 instead.")
+                    print(
+                        f"Not accounted: Row 6 cell 3 value is +ve or 0.00: {difference}, replacing by 0 instead.")
         elif value_1 is None:
             table.rows[row_pos].cells[2].text = bo_cs_NA
-            print(f"Row 6 cell 3: Either one or both of the values is not proper. value1 = {value_1}, value2 = {value_2}")
+            print(
+                f"Row 6 cell 3: Either one or both of the values is not proper. value1 = {value_1}, value2 = {value_2}")
         elif value_2 is None:
             table.rows[row_pos].cells[2].text = ewb_out_analysis_NA
-            print(f"Row 6 cell 3: Either one or both of the values is not proper. value1 = {value_1}, value2 = {value_2}")
+            print(
+                f"Row 6 cell 3: Either one or both of the values is not proper. value1 = {value_1}, value2 = {value_2}")
         row_pos += 1
 
         # 7.  Row 7 cell 3
@@ -589,21 +559,20 @@ async def asmt_10_report_generator(gstin, master_dict):
         value_2 = master_dict.get('gstr1_merged_dict', {}).get('result_point_12_total_late_fee_gstr1', None)
         value_3 = master_dict.get('gstr3b_merged_dict', {}).get('result_point_12_late_fee_paid_in_cash', None)
         if isinstance(value_1, numbers.Number) and isinstance(value_2, numbers.Number):
-            print(" Inside if point 1")
             total_late_fee = value_1 + value_2
             if isinstance(value_3, numbers.Number):
                 total_late_fee = total_late_fee - value_3
                 if total_late_fee > 0:
                     # Divide total late fee into two parts: CGST & SGST
-                    table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee/2, 2))
-                    table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee/2, 2))
+                    table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee / 2, 2))
+                    table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee / 2, 2))
                 else:
                     print(f"Not accounted: Row 12 cell 3 value is -ve or 0.00: {total_late_fee}")
                     table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
                     table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
             else:
-                table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee/2, 2))
-                table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee/2, 2))
+                table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee / 2, 2))
+                table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee / 2, 2))
                 print(f"Row 12 cell 3 Late fee paid in cash is : {value_3}")
         elif value_1 is None or value_3 is None:
             table.rows[row_pos].cells[3].text = gstr3b_merged_NA
@@ -614,15 +583,15 @@ async def asmt_10_report_generator(gstin, master_dict):
         # 13. Row 13 cell 3 - new addition GSTR-9 late fee
         value = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('result_point_13', None)
         if value is not None:
-            table.rows[row_pos].cells[3].text = rupee_symbol + str(round(value/2, 2))
-            table.rows[row_pos].cells[4].text = rupee_symbol + str(round(value/2, 2))
+            table.rows[row_pos].cells[3].text = rupee_symbol + str(round(value / 2, 2))
+            table.rows[row_pos].cells[4].text = rupee_symbol + str(round(value / 2, 2))
         else:
             table.rows[row_pos].cells[3].text = gstr9_NA
             table.rows[row_pos].cells[4].text = gstr9_NA
         row_pos += 1
 
         # 14. Row 14 cell 3
-        value = master_dict.get('gstr1_analysis_dict', {}).get('result_point_14', None)
+        value = master_dict.get('gstr1_analysis_dict', {}).get(result_point_14, None)
         cell = table.rows[row_pos].cells[2]
         paragraph = cell.paragraphs[0]
         paragraph.clear()
@@ -645,7 +614,8 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[2].text = rupee_symbol + str(abs(value_1 - value_2))
             else:
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
-                print(f"Not accounted: Row 15 cell 3 value is -ve or 0.00: {value_1 - value_2}, replacing by 0 instead.")
+                print(
+                    f"Not accounted: Row 15 cell 3 value is -ve or 0.00: {value_1 - value_2}, replacing by 0 instead.")
         elif value_1 is None:
             table.rows[row_pos].cells[2].text = gstr2a_analysis_NA
             print(
@@ -794,10 +764,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         elif igst1 is None:
             table.rows[row_pos].cells[2].text = gstr3b_analysis_NA
-            print(f"Row 20 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
+            print(
+                f"Row 20 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
         elif igst2 is None:
             table.rows[row_pos].cells[2].text = gstr2a_analysis_NA
-            print(f"Row 20 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
+            print(
+                f"Row 20 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
 
         if isinstance(cgst1, numbers.Number) and isinstance(cgst2, numbers.Number):
             difference = cgst1 - cgst2
@@ -808,10 +780,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
         elif cgst1 is None:
             table.rows[row_pos].cells[3].text = gstr3b_analysis_NA
-            print(f"Row 20 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
+            print(
+                f"Row 20 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
         elif cgst2 is None:
             table.rows[row_pos].cells[3].text = gstr2a_analysis_NA
-            print(f"Row 20 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
+            print(
+                f"Row 20 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
 
         if isinstance(sgst1, numbers.Number) and isinstance(sgst2, numbers.Number):
             difference = sgst1 - sgst2
@@ -822,10 +796,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
         elif sgst1 is None:
             table.rows[row_pos].cells[4].text = gstr3b_analysis_NA
-            print(f"Row 20 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
+            print(
+                f"Row 20 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
         elif sgst2 is None:
             table.rows[row_pos].cells[4].text = gstr2a_analysis_NA
-            print(f"Row 20 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
+            print(
+                f"Row 20 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
 
         if isinstance(cess1, numbers.Number) and isinstance(cess2, numbers.Number):
             difference = cess1 - cess2
@@ -836,10 +812,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[5].text = rupee_symbol + string_zero
         elif cess1 is None:
             table.rows[row_pos].cells[5].text = gstr3b_analysis_NA
-            print(f"Row 20 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess2 = {cess2}")
+            print(
+                f"Row 20 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess2 = {cess2}")
         elif cess2 is None:
             table.rows[row_pos].cells[5].text = gstr2a_analysis_NA
-            print(f"Row 20 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess = {cess2}")
+            print(
+                f"Row 20 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess = {cess2}")
         row_pos += 1
 
         # 21. Row 21 cell 3
@@ -860,10 +838,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         elif igst1 is None:
             table.rows[row_pos].cells[2].text = gstr3b_analysis_NA
-            print(f"Row 21 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
+            print(
+                f"Row 21 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
         elif igst2 is None:
             table.rows[row_pos].cells[2].text = gstr2a_analysis_NA
-            print(f"Row 21 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
+            print(
+                f"Row 21 cell 3: Either one or both of the IGST values is not proper- igst1: {igst1}, igst2 = {igst2}")
 
         if isinstance(cgst1, numbers.Number) and isinstance(cgst2, numbers.Number):
             difference = cgst1 - cgst2
@@ -874,10 +854,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
         elif cgst1 is None:
             table.rows[row_pos].cells[3].text = gstr3b_analysis_NA
-            print(f"Row 21 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
+            print(
+                f"Row 21 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
         elif cgst2 is None:
             table.rows[row_pos].cells[3].text = gstr2a_analysis_NA
-            print(f"Row 21 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
+            print(
+                f"Row 21 cell 4: Either one or both of the CGST values is not proper- cgst1: {cgst1}, cgst2 = {cgst2}")
 
         if isinstance(sgst1, numbers.Number) and isinstance(sgst2, numbers.Number):
             difference = sgst1 - sgst2
@@ -888,10 +870,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
         elif sgst1 is None:
             table.rows[row_pos].cells[4].text = gstr3b_analysis_NA
-            print(f"Row 21 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
+            print(
+                f"Row 21 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
         elif sgst2 is None:
             table.rows[row_pos].cells[4].text = gstr2a_analysis_NA
-            print(f"Row 21 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
+            print(
+                f"Row 21 cell 5: Either one or both of the SGST values is not proper- sgst1: {sgst1}, sgst2 = {sgst2}")
 
         if isinstance(cess1, numbers.Number) and isinstance(cess2, numbers.Number):
             difference = cess1 - cess2
@@ -902,10 +886,12 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[5].text = rupee_symbol + string_zero
         elif cess1 is None:
             table.rows[row_pos].cells[5].text = gstr3b_analysis_NA
-            print(f"Row 21 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess2 = {cess2}")
+            print(
+                f"Row 21 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess2 = {cess2}")
         elif cess2 is None:
             table.rows[row_pos].cells[5].text = gstr2a_analysis_NA
-            print(f"Row 21 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess = {cess2}")
+            print(
+                f"Row 21 cell 6: Either one or both of the CESS values is not proper- cess1: {cess1}, cess = {cess2}")
         row_pos += 1
 
         # 22. Row 22 cell 3
@@ -933,6 +919,7 @@ async def asmt_10_report_generator(gstin, master_dict):
 
         # Save the document
         doc.save(output_path)
-        print(f"✅ [ASMT-10 report generator] Document saved at: {output_path}")
+        print(f"✅ [General report generator] Document saved at: {output_path}")
     except Exception as e:
-        print(f"[ASMT-10 report generator] ❌ Error during report generation: {e}")
+        print(f"[General report generator] ❌ Error during report generation: {e}")
+

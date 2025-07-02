@@ -13,7 +13,7 @@ TAX_COLS = [5, 6, 7, 8, 9]  # Taxable Value, IGST, CGST, SGST, Cess
 
 
 async def generate_gstr1_merged_analysis(gstin: str):
-    print(f" Started execution of method generate_gstr1_analysis for: {gstin}")
+    print(f"[GSTR-1 Analysis] Started execution of method generate_gstr1_analysis for: {gstin}")
     input_path = f"reports/{gstin}/GSTR-1_merged.xlsx"
     output_path = f"reports/{gstin}/GSTR-1_Analysis.xlsx"
     final_result_points = {}

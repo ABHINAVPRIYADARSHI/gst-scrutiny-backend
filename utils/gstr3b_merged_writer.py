@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 from utils.extractors.gstr3b_table_extractor import extract_fixed_tables_from_gstr3b
 from utils.globals.constants import newFormat, str_six_point_one, str_two, str_one, \
     str_three_point_one_point_one, oldFormat, parse_month_year, clean_and_parse_number, late_fee_headers, str_four, \
-    str_three_point_one
+    str_three_point_one, financial_year_2022_23, parse_month, financial_year_2023_24, financial_year_2024_25
 
 manual_columns = [
     "Description",
@@ -26,11 +26,13 @@ interest_calc_headers = [
     "Financial Year", "Return Month", "Date of ARN", "Due Date", "Days Late", "Tax paid in cash",
     "Calculated Interest", "Interest paid in cash", "Interest Due"
 ]
+financial_year_2019_20 = "2019-20"
 
 
 async def generate_gstr3b_merged(input_dir, output_dir):
     final_result_points = {}
-    print("=== Generating GSTR-3B merged report ===")
+    output_path = None
+    print(f"[GSTR-3b_merged_writer] Generating GSTR-3B merged report ===")
     try:
         gstr3b_format = newFormat  # Let by-default be NEW_FORMAT
 
@@ -47,7 +49,8 @@ async def generate_gstr3b_merged(input_dir, output_dir):
             table_map = extract_fixed_tables_from_gstr3b(pdf_path)
             for key, df in table_map.items():
                 combined_tables[key].append(df)  # contains tables from all PDF files with table number as key
-                if key in (str_one, str_two, str_three_point_one, str_four, str_six_point_one):  # We need tables 1,2,4 & 6 for interest calc & late fee.
+                # We need tables 1,2,4 & 6 for interest calc & late fee.
+                if key in (str_one, str_two, str_three_point_one, str_four, str_six_point_one):
                     interest_tables_list.append(df)
             interest_matrix.append(interest_tables_list)  # Used in Interest Calculation sheet
 
@@ -109,7 +112,7 @@ async def generate_gstr3b_merged(input_dir, output_dir):
 
         # Result point 22: Find cash liability due to less cash payment
         cash_liability = calculate_cash_liability(interest_matrix)
-        print("Total cash liability: {cash_liability}")
+        print(f"Total cash liability: {cash_liability}")
         final_result_points["result_point_22_IGST"] = round(cash_liability[0], 2)
         final_result_points["result_point_22_CGST"] = round(cash_liability[1], 2)
         final_result_points["result_point_22_SGST"] = round(cash_liability[2], 2)
@@ -176,6 +179,71 @@ async def generate_gstr3b_merged(input_dir, output_dir):
         return output_path, final_result_points
 
 
+#  Parameter 8 of ASMT-10 report
+# Due date for ineligible ITC for financial_year 2019-20 is = 30-Nov-2021
+# Due date for ineligible ITC for financial_year 2020-21 is = 30-Nov-2021
+# Due date for ineligible ITC for financial_year 2021-22 is = 30-Nov-2022
+# Due date for ineligible ITC for financial_year 2022-23 is = 30-Nov-2023
+# Due date for ineligible ITC for financial_year 2023-24 is = 30-Nov-2024
+# Due date for ineligible ITC for financial_year 2024-25 is = 30-Nov-2025
+def calculate_ineligible_ITC(interest_matrix):
+    print(f"[GSTR-3B_merged] Starting with ineligible_ITC calculation, number of months : {len(interest_matrix)}")
+    monthly_dfs = []
+    ineligible_ITC_list = [0.0] * 4  # four elements representing sum of IGST, CGST, SGST, Cess
+    # due_date_for_ITC = datetime.datetime.strptime("30/11/2022", "%d/%m/%Y").date()
+    for entry in interest_matrix:
+        try:
+            first_table, second_table, table_3, table_4, table_6_1 = entry
+            financial_year = first_table.iloc[0, 1]
+            return_month = first_table.iloc[1, 1]
+            print(f"Calculating ineligible ITC for: {return_month, financial_year}")
+            if financial_year == financial_year_2019_20:
+                print(f"[GSTR-3B]Ineligible ITC calculation: Setting due day as 30th Nov 2021 for year: {financial_year}")
+                due_date_for_ITC = datetime.datetime.strptime("30/11/2021", "%d/%m/%Y").date()
+            else:
+                fy_end_year = int(financial_year.split('-')[0]) + 1  # 2022 becomes 2023
+                due_day = f"30/11/{fy_end_year}"
+                print(f"[GSTR-3B]Ineligible ITC calculation: Setting due day as {due_day} for year: {financial_year}")
+                due_date_for_ITC = datetime.datetime.strptime(due_day, "%d/%m/%Y").date()
+            filing_date_str = second_table.iloc[-1, -1]
+            filing_date = datetime.datetime.strptime(filing_date_str, "%d/%m/%Y").date()
+
+            if filing_date > due_date_for_ITC:
+                # Sum of rows 1 to 5 of table 4(A) across all columns IGST + CGST + State/UT tax + Cess
+                print(f"ITC for month: {return_month, financial_year} is ineligible due to late filing: {filing_date}")
+                ineligible_ITC_list[0] += pd.to_numeric(table_4.iloc[1:6, 1], errors='coerce').fillna(
+                    0).to_numpy().sum()
+                ineligible_ITC_list[1] += pd.to_numeric(table_4.iloc[1:6, 2], errors='coerce').fillna(
+                    0).to_numpy().sum()
+                ineligible_ITC_list[2] += pd.to_numeric(table_4.iloc[1:6, 3], errors='coerce').fillna(
+                    0).to_numpy().sum()
+                ineligible_ITC_list[3] += pd.to_numeric(table_4.iloc[1:6, 4], errors='coerce').fillna(
+                    0).to_numpy().sum()
+
+            # Add to monthly dataframes
+            table_subset = table_4.iloc[1:6, 0:].reset_index(drop=True)
+            # Create 'Month' and 'Filing Date' columns (merged-style)
+            year_col = [financial_year] + [''] * (table_subset.shape[0] - 1)
+            month_col = [return_month] + [''] * (table_subset.shape[0] - 1)
+            filing_date_col = [filing_date.strftime("%d-%m-%Y")] + [''] * (table_subset.shape[0] - 1)
+            due_date_col = [due_date_for_ITC.strftime("%d-%m-%Y")] + [''] * (table_subset.shape[0] - 1)
+
+            # Combine into a single DataFrame
+            monthly_df = pd.DataFrame({
+                'Financial Year': year_col,
+                'Month': month_col,
+                'Filing Date': filing_date_col,
+                'Due Date': due_date_col
+            }).join(table_subset)
+            monthly_dfs.append(monthly_df)
+        except Exception as e:
+            print(
+                f"[GSTR-3b_merged_writer]: ❌ Error while calculating ineligible ITC for: {return_month, financial_year}")
+            print(e)
+    return monthly_dfs, ineligible_ITC_list
+
+
+#  Parameter 9 of ASMT-10 report
 def calculate_interest(interest_matrix):
     print(f"Starting with interest calculation, length of Interest matrix: {len(interest_matrix)}")
     records = []
@@ -191,9 +259,10 @@ def calculate_interest(interest_matrix):
             # Extract filing date
             filing_date_str = second_table.iloc[-1, -1]
             filing_date = datetime.datetime.strptime(filing_date_str, "%d/%m/%Y").date()
-            # Get due date = 20th of next month from return month
             return_month_date = parse_month_year(return_month, financial_year)
-            due_date = (return_month_date + relativedelta(months=1)).replace(day=20)
+            day = dayOFDue(financial_year, return_month, "Interest")
+            due_date = (return_month_date + relativedelta(months=1)).replace(day=day)
+            print(f"Due date: {due_date}")
             days_late = max((filing_date - due_date).days, 0)
             # Sum 7th, 8th and 9th columns (Tax paid in cash, Interest paid in cash, Late fee paid in cash)
             tax_paid_in_cash = pd.to_numeric(table_6_1.iloc[:, 6], errors='coerce').fillna(0).sum()
@@ -251,51 +320,7 @@ def calculate_interest(interest_matrix):
     return records, interest_list
 
 
-def calculate_cash_liability(interest_matrix):
-    print(f"Starting with cash liability calculation, length of Interest matrix: {len(interest_matrix)}")
-    cash_liability = [0.0] * 4
-    for entry in interest_matrix:
-        try:
-            first_table, second_table, table_3_1, table_4, table_6_1 = entry
-            table_6_1 = preprocess_table_6([table_6_1])[0]
-            # Extract financial year and month
-            financial_year = first_table.iloc[0, 1]
-            return_month = first_table.iloc[1, 1]
-            print(f"Calculating cash liability for: {return_month, financial_year}")
-            taxable_value= pd.to_numeric(table_3_1.iloc[0, 1])
-            print(f"table_3 a: taxable value= {taxable_value}")
-            if taxable_value > 5000000:
-                total_IGST_payable = pd.to_numeric(table_6_1.iloc[1, 1], errors='coerce')
-                total_IGST_paid_in_cash = pd.to_numeric(table_6_1.iloc[1, 6], errors='coerce')
-                one_percent_of_total_IGST_payable = round(0.01 * total_IGST_payable, 2)
-                total_CGST_payable = pd.to_numeric(table_6_1.iloc[2, 1], errors='coerce')
-                total_CGST_paid_in_cash = pd.to_numeric(table_6_1.iloc[2, 6], errors='coerce')
-                one_percent_of_total_CGST_payable = round(0.01 * total_CGST_payable, 2)
-                total_SGST_payable = pd.to_numeric(table_6_1.iloc[3, 1], errors='coerce')
-                total_SGST_paid_in_cash = pd.to_numeric(table_6_1.iloc[3, 6], errors='coerce')
-                one_percent_of_total_SGST_payable = round(0.01 * total_SGST_payable, 2)
-                total_CESS_payable = pd.to_numeric(table_6_1.iloc[4, 1], errors='coerce')
-                total_CESS_paid_in_cash = pd.to_numeric(table_6_1.iloc[4, 6], errors='coerce')
-                one_percent_of_total_CESS_payable = round(0.01 * total_CESS_payable, 2)
-                if total_IGST_paid_in_cash < one_percent_of_total_IGST_payable:
-                    print(f"IGST Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
-                    cash_liability[0] += round(one_percent_of_total_IGST_payable - total_IGST_paid_in_cash, 2)
-                if total_CGST_paid_in_cash < one_percent_of_total_CGST_payable:
-                    print(f"CGST Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
-                    cash_liability[1] += round(one_percent_of_total_CGST_payable - total_CGST_paid_in_cash, 2)
-                if total_SGST_paid_in_cash < one_percent_of_total_SGST_payable:
-                    print(f"SGST Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
-                    cash_liability[2] += round(one_percent_of_total_SGST_payable - total_SGST_paid_in_cash, 2)
-                if total_CESS_paid_in_cash < one_percent_of_total_CESS_payable:
-                    print(f"CESS Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
-                    cash_liability[3] += round(one_percent_of_total_CESS_payable - total_CESS_paid_in_cash, 2)
-
-        except Exception as e:
-            print(f"[GSTR-3b_merged] Error during Cash liability for {return_month}, {financial_year}: {e}")
-
-    return cash_liability
-
-
+#  Parameter 12 of ASMT-10 report
 def calculate_late_fee(interest_matrix):
     print(f"[GSTR-3B_merged]Starting with late fee calculation, number of months : {len(interest_matrix)}")
     records = []
@@ -307,9 +332,10 @@ def calculate_late_fee(interest_matrix):
             print(f"Calculating late fee for: {return_month, financial_year}")
             filing_date_str = second_table.iloc[-1, -1]
             filing_date = datetime.datetime.strptime(filing_date_str, "%d/%m/%Y").date()
-            # Get due date = 20th of next month from return month
+            day = dayOFDue(financial_year, return_month, "Late Fee")
             return_month_date = parse_month_year(return_month, financial_year)
-            due_date = (return_month_date + relativedelta(months=1)).replace(day=20)
+            due_date = (return_month_date + relativedelta(months=1)).replace(day= day)
+            print(f"Due date: {due_date}")
             days_late = max((filing_date - due_date).days, 0)
             calculated_late_fee = (100 * days_late)
             late_fee_applicable = min(calculated_late_fee, 5000)
@@ -333,49 +359,54 @@ def calculate_late_fee(interest_matrix):
     return records
 
 
-def calculate_ineligible_ITC(interest_matrix):
-    print(f"[GSTR-3B_merged]Starting with ineligible_ITC calculation, number of months : {len(interest_matrix)}")
-    monthly_dfs = []
-    ineligible_ITC_list = [0.0] * 4  # four elements representing sum of IGST, CGST, SGST, Cess
-    # Due date for ineligible ITC for financial_year 2021-22 is = 30-Nov-2022
-    due_date_for_ITC = datetime.datetime.strptime("30/11/2022", "%d/%m/%Y").date()
+#  Parameter 22 of ASMT-10 report
+def calculate_cash_liability(interest_matrix):
+    print(f"Starting with cash liability calculation, length of Interest matrix: {len(interest_matrix)}")
+    cash_liability = [0.0] * 4
     for entry in interest_matrix:
         try:
-            first_table, second_table, table_3, table_4, table_6_1 = entry
+            first_table, second_table, table_3_1, table_4, table_6_1 = entry
+            table_6_1 = preprocess_table_6([table_6_1])[0]
+            # Extract financial year and month
             financial_year = first_table.iloc[0, 1]
             return_month = first_table.iloc[1, 1]
-            print(f"Calculating ineligible ITC for: {return_month, financial_year}")
-            filing_date_str = second_table.iloc[-1, -1]
-            filing_date = datetime.datetime.strptime(filing_date_str, "%d/%m/%Y").date()
+            print(f"Calculating cash liability for: {return_month, financial_year}")
+            taxable_value = pd.to_numeric(table_3_1.iloc[0, 1])
+            print(f"table_3 a: taxable value= {taxable_value}")
+            if taxable_value > 5000000:
+                total_IGST_payable = pd.to_numeric(table_6_1.iloc[1, 1], errors='coerce')
+                total_IGST_paid_in_cash = pd.to_numeric(table_6_1.iloc[1, 6], errors='coerce')
+                one_percent_of_total_IGST_payable = round(0.01 * total_IGST_payable, 2)
+                total_CGST_payable = pd.to_numeric(table_6_1.iloc[2, 1], errors='coerce')
+                total_CGST_paid_in_cash = pd.to_numeric(table_6_1.iloc[2, 6], errors='coerce')
+                one_percent_of_total_CGST_payable = round(0.01 * total_CGST_payable, 2)
+                total_SGST_payable = pd.to_numeric(table_6_1.iloc[3, 1], errors='coerce')
+                total_SGST_paid_in_cash = pd.to_numeric(table_6_1.iloc[3, 6], errors='coerce')
+                one_percent_of_total_SGST_payable = round(0.01 * total_SGST_payable, 2)
+                total_CESS_payable = pd.to_numeric(table_6_1.iloc[4, 1], errors='coerce')
+                total_CESS_paid_in_cash = pd.to_numeric(table_6_1.iloc[4, 6], errors='coerce')
+                one_percent_of_total_CESS_payable = round(0.01 * total_CESS_payable, 2)
+                if total_IGST_paid_in_cash < one_percent_of_total_IGST_payable:
+                    print(
+                        f"IGST Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
+                    cash_liability[0] += round(one_percent_of_total_IGST_payable - total_IGST_paid_in_cash, 2)
+                if total_CGST_paid_in_cash < one_percent_of_total_CGST_payable:
+                    print(
+                        f"CGST Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
+                    cash_liability[1] += round(one_percent_of_total_CGST_payable - total_CGST_paid_in_cash, 2)
+                if total_SGST_paid_in_cash < one_percent_of_total_SGST_payable:
+                    print(
+                        f"SGST Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
+                    cash_liability[2] += round(one_percent_of_total_SGST_payable - total_SGST_paid_in_cash, 2)
+                if total_CESS_paid_in_cash < one_percent_of_total_CESS_payable:
+                    print(
+                        f"CESS Cash liability for {return_month}, {financial_year} is there due to less cash payment.")
+                    cash_liability[3] += round(one_percent_of_total_CESS_payable - total_CESS_paid_in_cash, 2)
 
-            if filing_date > due_date_for_ITC:
-                # Sum of rows 1 to 5 of table 4(A) across all columns IGST + CGST + State/UT tax + Cess
-                print(f"ITC for month: {return_month, financial_year} is ineligible due to late filing: {filing_date}")
-                ineligible_ITC_list[0] += pd.to_numeric(table_4.iloc[1:6, 1], errors='coerce').fillna(0).to_numpy().sum()
-                ineligible_ITC_list[1] += pd.to_numeric(table_4.iloc[1:6, 2], errors='coerce').fillna(0).to_numpy().sum()
-                ineligible_ITC_list[2] += pd.to_numeric(table_4.iloc[1:6, 3], errors='coerce').fillna(0).to_numpy().sum()
-                ineligible_ITC_list[3] += pd.to_numeric(table_4.iloc[1:6, 4], errors='coerce').fillna(0).to_numpy().sum()
-
-            # Add to monthly dataframes
-            table_subset = table_4.iloc[1:6, 0:].reset_index(drop=True)
-            # Create 'Month' and 'Filing Date' columns (merged-style)
-            year_col = [financial_year] + [''] * (table_subset.shape[0] -1)
-            month_col = [return_month] + [''] * (table_subset.shape[0] - 1)
-            filing_date_col = [filing_date.strftime("%d-%m-%Y")] + [''] * (table_subset.shape[0] - 1)
-            due_date_col = [due_date_for_ITC.strftime("%d-%m-%Y")] + [''] * (table_subset.shape[0] - 1)
-
-            # Combine into a single DataFrame
-            monthly_df = pd.DataFrame({
-                'Financial Year': year_col,
-                'Month': month_col,
-                'Filing Date': filing_date_col,
-                'Due Date': due_date_col
-            }).join(table_subset)
-            monthly_dfs.append(monthly_df)
         except Exception as e:
-            print(f"[GSTR-3b_merged_writer]: ❌ Error while calculating ineligible ITC for: {return_month, financial_year}")
-            print(e)
-    return monthly_dfs, ineligible_ITC_list
+            print(f"[GSTR-3b_merged] Error during Cash liability for {return_month}, {financial_year}: {e}")
+
+    return cash_liability
 
 
 def preprocess_table_6(df_list):
@@ -386,3 +417,23 @@ def preprocess_table_6(df_list):
         df_list[i].columns = manual_columns
         df_list[i] = df_list[i].iloc[1:].reset_index(drop=True)
     return df_list
+
+
+# Get due date = 20th of next month from return month
+# due date for FY 2022-23, return month April = 24 May 2023
+# due date for FY 2023-24, return month May = 30 June 2024
+# due date for FY 2024-25, return month Dec = 22 Jan 2025
+def dayOFDue(financial_year, return_month, purpose):
+    if financial_year == financial_year_2022_23 and parse_month(return_month) == 4:
+        print(f"[GSTR-3B] {purpose} calculation: Setting due day as 24th of next month for month: {return_month}, year: {financial_year}")
+        day = 24
+    elif financial_year == financial_year_2023_24 and parse_month(return_month) == 5:
+        print(f"[GSTR-3B] {purpose} calculation: Setting due day as 30th of next month for month: {return_month}, year: {financial_year}")
+        day = 30
+    elif financial_year == financial_year_2024_25 and parse_month(return_month) == 12:
+        print(f"[GSTR-3B] {purpose} calculation: Setting due day as 22nd of next month for month: {return_month}, year: {financial_year}")
+        day = 22
+    else:
+        print(f"[GSTR-3B] {purpose} calculation: Setting due day as 20th of next month for month: {return_month}, year: {financial_year}")
+        day = 20
+    return day

@@ -5,39 +5,59 @@ import pdfplumber
 import datetime
 from tabulate import tabulate
 from utils.globals.constants import int_eighteen, clean_and_parse_number
+financial_year_2019_20 = "2019-20"
+financial_year_2020_21 = "2020-21"
 
-# Define how many rows to skip per table before setting headers. Don't modify this structure else uploaded
+# Define how many rows to skip per table before setting headers. Don't comment out any line else uploaded
 # table_position_in_useful_tables will have to be changed accordingly. Out of all tables extracted from the
 # PDF file, only the tables whose positions are mentioned as keys in table_header_rows_skip will be saved in
 # useful_tables. The table name : position as per GSTR-9 PDF file is stored in table_position_in_useful_tables.
 table_header_rows_skip_gstr9_old_format = {
-    0: -1,
-    1: 4,  # Table 4
-    2: 0,  # Table 4
-    3: 4,  # Table 5
-    4: 0,  # Table 5
-    # 5 : 4, not required
-    6: 3,  # Table 6
+    0: -1,  # We are not dropping any row
+    1: 4,  # Table 4  : here 4 means We are skipping first 4 header rows
+    2: 0,  # Table 4   : 0 means We are
+    3: 4,  # Table 5 Part I
+    4: 0,  # Table 5 Part II
+    # 5 : 4, Table 6 part I not required
+    6: -1,  # Table 6 part II
     7: 3,  # Table 7
-    # 8: 0,  Part of Table 7 not required
+    # 8: 0,  Part II of Table 7 not required
     9: 3,  # Table 8
     10: 3,  # Table 9
-    11: 3  # Table 10, 11, 12 ,13
+    11: 2  # Table 10, 11, 12 ,13
 }
 table_header_rows_skip_gstr9_new_format = {
     0: -1,
     1: 4,  # Table 4
     2: 0,  # Table 4
-    3: 4,  # Table 5
-    4: -1,  # Table 5
-    # 5 : 4, not required
-    # 6: 0,  not required
-    7: 3,  # Table 6
+    3: 4,  # Table 5 Part I
+    4: -1,  # Table 5 Part II
+    # 5 : 3, Table 6 Part I not required
+    # 6: 0,  Table 6 Part II not required
+    7: -1,  # Table 6 Part III
     8: 3,  # Table 7
     # 9 : 0,  Part of Table 7 not required
     10: 3,  # Table 8
     11: 3,  # Table 9
-    12: 3  # Table 10, 11, 12 ,13
+    12: 2  # Table 10, 11, 12 ,13
+}
+header_row_map_old_format = {
+    # 0:
+    1: 2,
+    3: 2,
+    7: 1,
+    9: 1,
+    10: 2,
+    11: 1
+}
+header_row_map_new_format = {
+    # 0:
+    1: 2,
+    3: 2,
+    8: 1,
+    10: 1,
+    11: 2,
+    12: 1
 }
 table_position_in_useful_tables_gstr9 = {
     "Table_1": 0,
@@ -54,7 +74,7 @@ table_position_in_useful_tables_gstr9 = {
 
 
 async def gstr9_pdf_reader(gstin):
-    print(" === Starting execution of file gstr9_pdf_reader.py ===")
+    print(f"[GSTR-9 reader] Starting execution of file gstr9_pdf_reader.py ===")
     all_tables = []
     useful_tables = []
     valuesFrom9 = {}
@@ -100,7 +120,7 @@ async def gstr9_pdf_reader(gstin):
                 for col_idx in range(2, df.shape[1]):
                     df.iat[row_idx, col_idx] = clean_and_parse_number(df.iat[row_idx, col_idx])
 
-        print(f"useful_tables size: {len(useful_tables)}")  # It should be 8 for both old & new.
+        print(f"useful_tables size: {len(useful_tables)}")  # It should be 10 for both old & new.
         # Write the dataframes in excel sheet GSTR-9.xlsx
         with pd.ExcelWriter(output_path_GSTR_9, engine="xlsxwriter") as writer:
             for i, df in enumerate(useful_tables):
@@ -149,10 +169,23 @@ async def gstr9_pdf_reader(gstin):
         valuesFrom9["table_5_N2"] = table_5_N2
         print(f"Table_5_Part_II_row_N calculation done: {table_5_N2}")
 
-        # Calculate late fee
-        due_date_for_ITC = datetime.datetime.strptime("31/12/2022", "%d/%m/%Y").date()
+        #  Parameter 13 of ASMT-10 report: calculate late fee for GSTR-9 late filing
+        # For FY 2019-20 = 31st Mar 2021
+        # For FY 2020-21 = 28th Feb 2022
+        # Else 31st Dec of that year
         table1 = useful_tables[table_position_in_useful_tables_gstr9["Table_1"]]
+        financial_year = table1.iloc[0, 1]
         filing_date_str = table1.iloc[-1, -1]
+        if financial_year == financial_year_2019_20:
+            print(f"[GSTR-9]Late fee calculation: Setting due day as 31st Mar 2021 for year: {financial_year}")
+            due_date_for_ITC = datetime.datetime.strptime("31/03/2021", "%d/%m/%Y").date()
+        elif financial_year == financial_year_2020_21:
+            print(f"[GSTR-9]Late fee calculation: Setting due day as 28th Feb 2022 for year: {financial_year}")
+            due_date_for_ITC = datetime.datetime.strptime("28/02/2022", "%d/%m/%Y").date()
+        else:
+            print(f"[GSTR-9]Late fee calculation: Setting due day as 31st Dec 2022 for year: {financial_year}")
+            due_date_for_ITC = datetime.datetime.strptime("31/12/2022", "%d/%m/%Y").date()
+        print(f"Due date: {due_date_for_ITC}")
         filing_date = datetime.datetime.strptime(filing_date_str, "%d-%m-%Y").date()
         if filing_date > due_date_for_ITC and table_5_N2 >= 20000000:
             days_late = max((filing_date - due_date_for_ITC).days, 0)
@@ -240,11 +273,11 @@ async def gstr9_pdf_reader(gstin):
 
         # 11. Table 13 (IGST, CGST, SGST, Cess)
         table_10_11_12_13 = useful_tables[table_position_in_useful_tables_gstr9["Table_10_11_12_13"]]
-        valuesFrom9["table_13_1"] = table_10_11_12_13.iloc[3, 1]
-        valuesFrom9["table_13_CGST"] = table_10_11_12_13.iloc[3, 3]
-        valuesFrom9["table_13_SGST"] = table_10_11_12_13.iloc[3, 4]
-        valuesFrom9["table_13_IGST"] = table_10_11_12_13.iloc[3, 5]
-        valuesFrom9["table_13_CESS"] = table_10_11_12_13.iloc[3, 6]
+        valuesFrom9["table_13_1"] = table_10_11_12_13.iloc[2, 1]
+        valuesFrom9["table_13_CGST"] = table_10_11_12_13.iloc[2, 3]
+        valuesFrom9["table_13_SGST"] = table_10_11_12_13.iloc[2, 4]
+        valuesFrom9["table_13_IGST"] = table_10_11_12_13.iloc[2, 5]
+        valuesFrom9["table_13_CESS"] = table_10_11_12_13.iloc[2, 6]
         print(" === ✅ Returning after successful execution of file gstr9_pdf_reader.py ===")
         return valuesFrom9
     except Exception as e:

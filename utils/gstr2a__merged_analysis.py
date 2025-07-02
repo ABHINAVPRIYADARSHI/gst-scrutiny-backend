@@ -29,7 +29,7 @@ sheet_names = ["B2B_merged", "ISD_merged", "IMPG_merged", "IMPG SEZ_merged"]
 
 
 async def generate_gstr2a_merged_analysis(gstin):
-    print(f" === Started execution of method generate_gstr2a_analysis for: {gstin} ===")
+    print(f"[GSTR-2A Analysis] Started execution of method generate_gstr2a_analysis for: {gstin} ===")
     final_result_points = {}
     input_path = f"reports/{gstin}/GSTR-2A_merged.xlsx"
     output_path = f"reports/{gstin}/GSTR-2A_analysis.xlsx"

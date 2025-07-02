@@ -13,7 +13,7 @@ sheet_ITC_IMPG = "ITC (IMPG)"
 
 
 async def generate_bo_comparison_summary_analysis(gstin):
-    print(f" === Started execution of method generate_bo_comparison_summary_analysis for: {gstin} ===")
+    print(f"[BO Comparison Analysis] Started execution of method generate_bo_comparison_summary_analysis for: {gstin} ===")
     final_result_points = {}
     input_path = f"uploaded_files/{gstin}/BO comparison summary/"
     output_path = f"reports/{gstin}/"
@@ -92,42 +92,8 @@ async def generate_bo_comparison_summary_analysis(gstin):
 
         # === SAVE RESULTS to Excel ===
 
-
-        # Split points into two sheets
-        # df_comparison = pd.DataFrame([
-        #     {'Description': "shortfall_total_col_D", 'Value': shortfall_total_col_D},
-        #     {'Description': "shortfall_total_col_I", 'Value': shortfall_total_col_I},
-        #     {'Description': "col_B_total", 'Value': col_B_total}
-        # ])
-        #
-        # df_reverse_charge = pd.DataFrame([
-        #     {'Description': 'total_sum_col_J_K_L_M', 'Value': total_sum_col_J_K_L_M}
-        # ])
-        #
-        # # Output file
-        # os.makedirs(output_path, exist_ok=True)
-        # output_file = os.path.join(output_path, "BO_comparison_summary_analysis.xlsx")
-        #
-        # # Write to Excel with two sheets
-        # with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-        #     df_comparison.to_excel(writer, sheet_name="Comparison Summary", index=False)
-        #     df_reverse_charge.to_excel(writer, sheet_name="Reverse charge", index=False)
-        #
-        #     # Get workbook and worksheet objects
-        #     workbook = writer.book
-        #     worksheet_comparison = writer.sheets["Comparison Summary"]
-        #     worksheet_reverse = writer.sheets["Reverse charge"]
-        #
-        #     # Define a format with word wrap
-        #     wrap_format = workbook.add_format({'text_wrap': True})
-        #
-        #     # Set column widths and apply format
-        #     worksheet_comparison.set_column('A:A', 25, wrap_format)  # Column A = Description
-        #     worksheet_comparison.set_column('B:B', 25, wrap_format)  # Column B = Value
-        #
-        #     worksheet_reverse.set_column('A:A', 40, wrap_format)
-        #     worksheet_reverse.set_column('B:B', 20, wrap_format)
         # print(f"[BO comparison Analysis] ✅ Result saved to: {output_file}")
+        print(f"[BO comparison Analysis] ✅ completed.")
         return final_result_points
     except Exception as e:
         print(f"[BO comparison Analysis] ❌ Error during analysis: {e}")

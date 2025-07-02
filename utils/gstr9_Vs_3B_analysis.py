@@ -10,7 +10,7 @@ async def generate_gstr9_Vs_3B_analysis(gstin):
     final_result_points = {}
     valuesFrom9 = {}
     valuesFrom3b ={}
-    print(" === Starting execution of file gstr9_Vs_3B_analysis.py ===")
+    print(f"[GSTR-9_Vs_3B Analysis] Starting execution of file gstr9_Vs_3B_analysis.py ===")
     output_dir_of_GSTR_9_report = f"reports/{gstin}/GSTR-9 vs GSTR-3B.xlsx"
 
     try:
@@ -160,12 +160,10 @@ async def generate_gstr9_Vs_3B_analysis(gstin):
         ws.cell(row=row_cursor, column=5, value=valuesFrom3b["table_6_1_total_tax_payable_SGST"])
         ws.cell(row=row_cursor, column=6, value=valuesFrom3b["table_6_1_total_tax_payable_CESS"])
         row_cursor += 1
-        tax_mismatch_point_19_IGST = valuesFrom9["tax_payable_table9_IGST"] - valuesFrom3b["table_6_1_total_tax_payable_IGST"]
-        print(f"tax_mismatch_point_19_IGST: {valuesFrom9['tax_payable_table9_IGST']} - {valuesFrom3b['table_6_1_total_tax_payable_IGST']}")
-        tax_mismatch_point_19_CGST = valuesFrom9["tax_payable_table9_CGST"] - valuesFrom3b["table_6_1_total_tax_payable_CGST"]
-        print(f"tax_mismatch_point_19_CGST: {valuesFrom9['tax_payable_table9_CGST']} - {valuesFrom3b['table_6_1_total_tax_payable_CGST']}")
-        tax_mismatch_point_19_SGST = valuesFrom9["tax_payable_table9_SGST"] - valuesFrom3b["table_6_1_total_tax_payable_SGST"]
-        tax_mismatch_point_19_CESS = valuesFrom9["tax_payable_table9_CESS"] - valuesFrom3b["table_6_1_total_tax_payable_CESS"]
+        tax_mismatch_point_19_IGST = round(valuesFrom9["tax_payable_table9_IGST"] - valuesFrom3b["table_6_1_total_tax_payable_IGST"], 2)
+        tax_mismatch_point_19_CGST = round(valuesFrom9["tax_payable_table9_CGST"] - valuesFrom3b["table_6_1_total_tax_payable_CGST"], 2)
+        tax_mismatch_point_19_SGST = round(valuesFrom9["tax_payable_table9_SGST"] - valuesFrom3b["table_6_1_total_tax_payable_SGST"], 2)
+        tax_mismatch_point_19_CESS = round(valuesFrom9["tax_payable_table9_CESS"] - valuesFrom3b["table_6_1_total_tax_payable_CESS"], 2)
         ws.cell(row=row_cursor, column=2, value="Tax mismatch")
         ws.cell(row=row_cursor, column=3, value=tax_mismatch_point_19_IGST)
         ws.cell(row=row_cursor, column=4, value=tax_mismatch_point_19_CGST)
@@ -183,7 +181,7 @@ async def generate_gstr9_Vs_3B_analysis(gstin):
         final_result_points['result_point_13'] = valuesFrom9['late_fee_gstr9_applicable']
         row_cursor += 3
 
-        # Result 5.1 = Table 8D - Table 13
+        # Result 5.1 = Table 8D + Table 13
         ws.cell(row=row_cursor, column=1, value="GSTR-9 Table 8D")
         ws.cell(row=row_cursor, column=2, value=valuesFrom9["table_8_D1"])
         ws.cell(row=row_cursor, column=3, value=valuesFrom9["table_8_D4"])
@@ -191,27 +189,27 @@ async def generate_gstr9_Vs_3B_analysis(gstin):
         ws.cell(row=row_cursor, column=5, value=valuesFrom9["table_8_D3"])
         ws.cell(row=row_cursor, column=6, value=valuesFrom9["table_8_D5"])
         row_cursor += 1
-        ws.cell(row=row_cursor, column=1, value="GSTR-9 Table 13")
-        ws.cell(row=row_cursor, column=2, value=valuesFrom9["table_13_1"])
-        ws.cell(row=row_cursor, column=3, value=valuesFrom9["table_13_IGST"])
-        ws.cell(row=row_cursor, column=4, value=valuesFrom9["table_13_CGST"])
-        ws.cell(row=row_cursor, column=5, value=valuesFrom9["table_13_SGST"])
-        ws.cell(row=row_cursor, column=6, value=valuesFrom9["table_13_CESS"])
-        row_cursor += 1
-        mismatch_IGST = valuesFrom9["table_8_D4"] + valuesFrom9["table_13_IGST"]
-        mismatch_CGST = valuesFrom9["table_8_D2"] + valuesFrom9["table_13_CGST"]
-        mismatch_SGST = valuesFrom9["table_8_D3"] + valuesFrom9["table_13_SGST"]
-        mismatch_CESS = valuesFrom9["table_8_D5"] + valuesFrom9["table_13_CESS"]
-        ws.cell(row=row_cursor, column=2, value="GSTR-9 (Table 8D + Table 13)")
-        ws.cell(row=row_cursor, column=3, value=mismatch_IGST)
-        ws.cell(row=row_cursor, column=4, value=mismatch_CGST)
-        ws.cell(row=row_cursor, column=5, value=mismatch_SGST)
-        ws.cell(row=row_cursor, column=6, value=mismatch_CESS)
+        # ws.cell(row=row_cursor, column=1, value="GSTR-9 Table 13")
+        # ws.cell(row=row_cursor, column=2, value=valuesFrom9["table_13_1"])
+        # ws.cell(row=row_cursor, column=3, value=valuesFrom9["table_13_IGST"])
+        # ws.cell(row=row_cursor, column=4, value=valuesFrom9["table_13_CGST"])
+        # ws.cell(row=row_cursor, column=5, value=valuesFrom9["table_13_SGST"])
+        # ws.cell(row=row_cursor, column=6, value=valuesFrom9["table_13_CESS"])
+        # row_cursor += 1
+        # mismatch_IGST = valuesFrom9["table_8_D4"] + valuesFrom9["table_13_IGST"]
+        # mismatch_CGST = valuesFrom9["table_8_D2"] + valuesFrom9["table_13_CGST"]
+        # mismatch_SGST = valuesFrom9["table_8_D3"] + valuesFrom9["table_13_SGST"]
+        # mismatch_CESS = valuesFrom9["table_8_D5"] + valuesFrom9["table_13_CESS"]
+        # ws.cell(row=row_cursor, column=2, value="GSTR-9 (Table 8D + Table 13)")
+        # ws.cell(row=row_cursor, column=3, value=mismatch_IGST)
+        # ws.cell(row=row_cursor, column=4, value=mismatch_CGST)
+        # ws.cell(row=row_cursor, column=5, value=mismatch_SGST)
+        # ws.cell(row=row_cursor, column=6, value=mismatch_CESS)
 
-        final_result_points["result_point_5_1_IGST"] = mismatch_IGST
-        final_result_points["result_point_5_1_CGST"] = mismatch_CGST
-        final_result_points["result_point_5_1_SGST"] = mismatch_SGST
-        final_result_points["result_point_5_1_CESS"] = mismatch_CESS
+        final_result_points["result_point_5_1_IGST"] = valuesFrom9["table_8_D4"]
+        final_result_points["result_point_5_1_CGST"] = valuesFrom9["table_8_D2"]
+        final_result_points["result_point_5_1_SGST"] = valuesFrom9["table_8_D3"]
+        final_result_points["result_point_5_1_CESS"] = valuesFrom9["table_8_D5"]
         row_cursor += 3
 
         # Apply wrap_text and fixed width to all cells in that column

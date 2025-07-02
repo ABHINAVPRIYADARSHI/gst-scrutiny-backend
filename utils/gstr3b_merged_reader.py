@@ -9,7 +9,7 @@ from utils.globals.constants import newFormat
 
 
 async def gstr3b_merged_reader(gstin):
-    print(" === Starting execution of file gstr3b_merged_reader.py ===")
+    print(f"[GSTR-3B_reader] Starting execution of file gstr3b_merged_reader.py ===")
     input_path = f"reports/{gstin}/GSTR-3B_merged.xlsx"
     try:
         if not os.path.exists(input_path):
@@ -32,6 +32,8 @@ async def gstr3b_merged_reader(gstin):
                 tables[key] = extract_table_with_header(df_full, key, TABLE_POSITIONS)
 
             # Taxpayer's info
+            table_1 = tables["1"].copy()
+            valuesFrom3b["financial_year"] = get_stripped_value(table_1.iloc[0, 1])
             table_2 = tables["2"].copy()
             valuesFrom3b["gstin_of_taxpayer"] = get_stripped_value(table_2.iloc[0, 1])
             valuesFrom3b["legal_name_of_taxpayer"] = get_stripped_value(table_2.iloc[1, 1])
@@ -138,11 +140,12 @@ async def gstr3b_merged_reader(gstin):
                 skipna=True)
             # valuesFrom3b["total_tax_payable_column_GSTR_3B_table_6"] = total_tax_payable_column_GSTR_3B_table_6
 
-            # 9. In case GSTR-9 is not uploaded, we need to create late fee from GSTR-3B_merged.
+            #  Parameter 13 of ASMT-10 report
+            # In case GSTR-9 is not uploaded, we need to create late fee from GSTR-3B_merged.
             # If table 3.1 (a+b+c+e) total taxable value > Rs 2,00,00,000
             if denominator > 20000000:
-                late_fee_gstr9_applicable = round(0.0025 * denominator, 2)
-                valuesFrom3b['result_point_13'] = late_fee_gstr9_applicable
+                late_fee_calc_from_3B_if_gstr9_not_uploaded = round(0.0025 * denominator, 2)
+                valuesFrom3b['result_point_13'] = late_fee_calc_from_3B_if_gstr9_not_uploaded
             else:
                 valuesFrom3b['result_point_13'] = 0.0
             print(" === ✅ Returning after successful execution of file gstr3b_merged_reader.py ===")

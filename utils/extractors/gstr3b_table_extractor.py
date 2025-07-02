@@ -1,5 +1,6 @@
 import pdfplumber
 import pandas as pd
+from tabulate import tabulate
 
 from utils.globals.constants import int_nine, int_zero, int_one
 
@@ -21,9 +22,9 @@ index_map_format_later_than_2022 = {
     "3.1.1": 3,
     "3.2": 4,
     "4": 6,  # Table 4 Is added manually later on since its concatenation of two tables 5 & 6
-    "5": 7,
-    "5.1": 8,
-    "6.1": 9,
+    "5": 7,  # There seems to be some issue with 5 & 5.1. While creating GSTR-3B merged,
+    "5.1": 8,  # the table header is not populated properly. We are proceeding with this known
+    "6.1": 9,  # defect as of now since we don't use tables 5 & 5.1 . Later on, it needs a fix.
     "7": 10
 }
 
@@ -46,10 +47,12 @@ def extract_fixed_tables_from_gstr3b(pdf_path):
                         df = df[1:].reset_index(drop=True)
                     all_tables.append(df)
     if len(all_tables) == int_nine:  # New format has 11 tables
-        print(f"GSTR-3B file {pdf_path} uploaded is old format (earlier than 2022.)")
+        print(
+            f"GSTR-3B file {pdf_path} uploaded is old format (earlier than or 2021-22) since it has {len(all_tables)} tables.")
         return extract_old_format_tables(all_tables, table_map)
     else:
-        print(f"GSTR-3B file {pdf_path} uploaded is new format (older than 2022.)")
+        print(
+            f"GSTR-3B file {pdf_path} uploaded is new format (later than FY 2021-22) since it has {len(all_tables)} tables.")
         return extract_new_format_tables(all_tables, table_map)
 
 
@@ -73,10 +76,13 @@ def extract_new_format_tables(all_tables, table_map):
 def processtable4(all_tables, table_map):
     # manually add PDF table 4 to table_map since its the concatenation of two split
     # tables 5 & 6 present on 1st page end & 2nd page beginning of any GSTR_3B pdf
-    df6 = all_tables[6].copy()  # temp copy of table[6]
-    original_header_row = list(df6.columns)  # Save the wrongly assigned header
-    df6.columns = range(len(df6.columns))  # Temporarily remove headers
-    df6 = pd.concat([pd.DataFrame([original_header_row]), df6], ignore_index=True)
-    df6.columns = all_tables[5].columns  # Now assign the correct header from df5
-    table_map["4"] = pd.concat([all_tables[5], df6], ignore_index=True)  # Combine both tables
-    # print(table_map)  # The print statement can print all tables gathered from all pages of a a given pdf file.
+    # print(tabulate(all_tables[5], tablefmt='grid', maxcolwidths=20))
+    # print("===================================")
+    # print(tabulate(all_tables[6], tablefmt='grid', maxcolwidths=20))
+
+    df5 = all_tables[5].copy()
+    df6 = all_tables[6].copy()
+    df6.columns = df5.columns
+    df_merged = pd.concat([df5, df6], ignore_index=True)
+    # print(tabulate(df_merged, tablefmt='grid', maxcolwidths=20))
+    table_map["4"] = df_merged
