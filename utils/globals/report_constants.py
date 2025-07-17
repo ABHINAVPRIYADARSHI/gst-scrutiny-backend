@@ -25,6 +25,11 @@ col_2_values = [
     "Difference in ITC on account of ISD credit (2A vs 3B)",
     "Difference in ITC on account of Import of goods (2A vs 3B)",
     "Cash Liability",
+    "Unreconciled turnover value as per 9C",
+    "Unreconciled tax payment as per 9C",
+    "Additional amount payable in cash as per 9C",
+    "Unreconciled ITC as per 9C",
+    "Amount payable due to ITC reconciliation as per 9C",
     "Miscellaneous (Specify)"
 ]
 
@@ -52,6 +57,11 @@ col_4_values = [
     "Sec. 20",
     "IGST Act",
     "Rule 86(B)",
+    "",
+    "",
+    "",
+    "",
+    "",
     "[Relevant Provision]"
 ]
 rupee_symbol = "₹ "
@@ -62,4 +72,5 @@ gstr2a_analysis_NA = "GSTR-2A analysis sheet/value not available."
 gstr3b_analysis_NA = "GSTR-3B analysis sheet/value not available."
 gstr3b_merged_NA = "GSTR-3B merged sheet/value not available."
 gstr9_NA = "GSTR-9 return/value not available."
+gstr9C_NA = "GSTR-9C return/value not available."
 ewb_out_analysis_NA = "EWB-Out analysis/value not available."

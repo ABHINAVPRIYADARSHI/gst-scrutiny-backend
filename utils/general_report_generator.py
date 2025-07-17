@@ -8,7 +8,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 from .globals.constants import string_zero, result_point_14, string_yes
-from .globals.report_constants import col_2_values, col_4_values
+from .globals.report_constants import col_2_values, col_4_values, gstr9C_NA
 from .globals.report_constants import rupee_symbol, bo_cs_NA, gstr3b_analysis_NA, gstr2a_analysis_NA, gstr9_NA, \
     ewb_out_analysis_NA, gstr3b_merged_NA, gstr1_merged_NA, gstr1_analysis_NA
 
@@ -564,15 +564,15 @@ async def general_analysis_report_generator(gstin, master_dict):
                 total_late_fee = total_late_fee - value_3
                 if total_late_fee > 0:
                     # Divide total late fee into two parts: CGST & SGST
-                    table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee / 2, 2))
-                    table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee / 2, 2))
+                    table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee, 2))
+                    table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee, 2))
                 else:
                     print(f"Not accounted: Row 12 cell 3 value is -ve or 0.00: {total_late_fee}")
                     table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
                     table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
             else:
-                table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee / 2, 2))
-                table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee / 2, 2))
+                table.rows[row_pos].cells[3].text = rupee_symbol + str(round(total_late_fee, 2))
+                table.rows[row_pos].cells[4].text = rupee_symbol + str(round(total_late_fee, 2))
                 print(f"Row 12 cell 3 Late fee paid in cash is : {value_3}")
         elif value_1 is None or value_3 is None:
             table.rows[row_pos].cells[3].text = gstr3b_merged_NA
@@ -583,8 +583,8 @@ async def general_analysis_report_generator(gstin, master_dict):
         # 13. Row 13 cell 3 - new addition GSTR-9 late fee
         value = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('result_point_13', None)
         if value is not None:
-            table.rows[row_pos].cells[3].text = rupee_symbol + str(round(value / 2, 2))
-            table.rows[row_pos].cells[4].text = rupee_symbol + str(round(value / 2, 2))
+            table.rows[row_pos].cells[3].text = rupee_symbol + str(round(value, 2))
+            table.rows[row_pos].cells[4].text = rupee_symbol + str(round(value, 2))
         else:
             table.rows[row_pos].cells[3].text = gstr9_NA
             table.rows[row_pos].cells[4].text = gstr9_NA
@@ -915,6 +915,137 @@ async def general_analysis_report_generator(gstin, master_dict):
             table.rows[row_pos].cells[5].text = rupee_symbol + str(cess)
         else:
             table.rows[row_pos].cells[5].text = gstr3b_merged_NA
+        row_pos += 1
+
+        # 23. Row 23
+        value = master_dict.get('gstr9c_analysis_dict', {}).get('table_5_R', None)
+        if isinstance(value, numbers.Number) :
+            if value > 0:  # populate if value is +ve
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(value)
+            else:
+                print(f"Not accounted: Row 23 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
+                table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
+        elif value is None:
+            print(f"Row 23 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            table.rows[row_pos].cells[2].text = gstr9C_NA
+        row_pos += 1
+
+        # 24. Row 24
+        igst = master_dict.get('gstr9c_analysis_dict', {}).get('table_9_R_IGST', None)
+        cgst = master_dict.get('gstr9c_analysis_dict', {}).get('table_9_R_CGST', None)
+        sgst = master_dict.get('gstr9c_analysis_dict', {}).get('table_9_R_SGST', None)
+        cess = master_dict.get('gstr9c_analysis_dict', {}).get('table_9_R_CESS', None)
+        if isinstance(igst, numbers.Number):
+            if igst < 0:
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(igst)
+            else:  # if igst is +ve put 0
+                table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 24 cell 3 IGST is +ve or 0.00, replacing by 0 instead. {igst}")
+        elif igst is None:
+            table.rows[row_pos].cells[2].text = gstr9C_NA
+            print(f"Row 24 cell 3: IGST is not proper: value = {igst}")
+
+        if isinstance(cgst, numbers.Number):
+            if cgst < 0:
+                table.rows[row_pos].cells[3].text = rupee_symbol + str(cgst)
+            else:  # if cgst is +ve put 0
+                table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 24 cell 4 CGST is +ve or 0.00, replacing by 0 instead. {cgst}")
+        elif cgst is None:
+            table.rows[row_pos].cells[3].text = gstr9C_NA
+            print(f"Row 24 cell 4: CGST is not proper: value = {cgst}")
+
+        if isinstance(sgst, numbers.Number):
+            if sgst < 0:
+                table.rows[row_pos].cells[4].text = rupee_symbol + str(sgst)
+            else:  # if sgst is +ve put 0
+                table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 24 cell 5 SGST is +ve or 0.00, replacing by 0 instead. {sgst}")
+        elif sgst is None:
+            table.rows[row_pos].cells[4].text = gstr9C_NA
+            print(f"Row 24 cell 5: SGST is not proper: value = {sgst}")
+
+        if isinstance(cess, numbers.Number):
+            if cess < 0:
+                table.rows[row_pos].cells[5].text = rupee_symbol + str(cess)
+            else:  # if cess is +ve put 0
+                table.rows[row_pos].cells[5].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 24 cell 6 CESS is +ve or 0.00, replacing by 0 instead. {cess}")
+        elif cess is None:
+            table.rows[row_pos].cells[5].text = gstr9C_NA
+            print(f"Row 24 cell 6: CESS is not proper: value = {cess}")
+        row_pos += 1
+
+        # 25. Row 25
+        igst = master_dict.get('gstr9c_analysis_dict', {}).get('table_11_IGST_total', None)
+        cgst = master_dict.get('gstr9c_analysis_dict', {}).get('table_11_CGST_total', None)
+        sgst = master_dict.get('gstr9c_analysis_dict', {}).get('table_11_SGST_total', None)
+        cess = master_dict.get('gstr9c_analysis_dict', {}).get('table_11_CESS_total', None)
+        if isinstance(igst, numbers.Number):
+            if igst > 0:
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(igst)
+            else:  # if igst is -ve put 0
+                table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 25 cell 3 IGST is +ve or 0.00, replacing by 0 instead. {igst}")
+        elif igst is None:
+            table.rows[row_pos].cells[2].text = gstr9C_NA
+            print(f"Row 25 cell 3: IGST is not proper: value = {igst}")
+
+        if isinstance(cgst, numbers.Number):
+            if cgst > 0:
+                table.rows[row_pos].cells[3].text = rupee_symbol + str(cgst)
+            else:  # if cgst is -ve put 0
+                table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 25 cell 4 CGST is -ve or 0.00, replacing by 0 instead. {cgst}")
+        elif cgst is None:
+            table.rows[row_pos].cells[3].text = gstr9C_NA
+            print(f"Row 25 cell 4: CGST is not proper: value = {cgst}")
+
+        if isinstance(sgst, numbers.Number):
+            if sgst > 0:
+                table.rows[row_pos].cells[4].text = rupee_symbol + str(sgst)
+            else:  # if sgst is -ve put 0
+                table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 25 cell 5 SGST is -ve or 0.00, replacing by 0 instead. {sgst}")
+        elif sgst is None:
+            table.rows[row_pos].cells[4].text = gstr9C_NA
+            print(f"Row 25 cell 5: SGST is not proper: value = {sgst}")
+
+        if isinstance(cess, numbers.Number):
+            if cess > 0:
+                table.rows[row_pos].cells[5].text = rupee_symbol + str(cess)
+            else:  # if cess is -ve put 0
+                table.rows[row_pos].cells[5].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 25 cell 6 CESS is -ve or 0.00, replacing by 0 instead. {cess}")
+        elif cess is None:
+            table.rows[row_pos].cells[5].text = gstr9C_NA
+            print(f"Row 25 cell 6: CESS is not proper: value = {cess}")
+        row_pos += 1
+
+        # 26. Row 26
+        value = master_dict.get('gstr9c_analysis_dict', {}).get('table_12_F', None)
+        if isinstance(value, numbers.Number):
+            if value > 0:  # populate if value is +ve
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(value)
+            else:
+                print(f"Not accounted: Row 26 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
+                table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
+        elif value is None:
+            print(f"Row 26 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            table.rows[row_pos].cells[2].text = gstr9C_NA
+        row_pos += 1
+
+        # 27. Row 27
+        value = master_dict.get('gstr9c_analysis_dict', {}).get('table_16_sum_total', None)
+        if isinstance(value, numbers.Number):
+            if value > 0:  # populate if value is +ve
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(value)
+            else:
+                print(f"Not accounted: Row 27 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
+                table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
+        elif value is None:
+            print(f"Row 27 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            table.rows[row_pos].cells[2].text = gstr9C_NA
         row_pos += 1
 
         # Save the document

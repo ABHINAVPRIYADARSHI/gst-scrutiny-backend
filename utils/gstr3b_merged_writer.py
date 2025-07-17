@@ -201,7 +201,7 @@ def calculate_ineligible_ITC(interest_matrix):
                 print(f"[GSTR-3B]Ineligible ITC calculation: Setting due day as 30th Nov 2021 for year: {financial_year}")
                 due_date_for_ITC = datetime.datetime.strptime("30/11/2021", "%d/%m/%Y").date()
             else:
-                fy_end_year = int(financial_year.split('-')[0]) + 1  # 2022 becomes 2023
+                fy_end_year = int(financial_year.split('-')[0]) + 1  # 2022-23 becomes 2023
                 due_day = f"30/11/{fy_end_year}"
                 print(f"[GSTR-3B]Ineligible ITC calculation: Setting due day as {due_day} for year: {financial_year}")
                 due_date_for_ITC = datetime.datetime.strptime(due_day, "%d/%m/%Y").date()
@@ -334,7 +334,7 @@ def calculate_late_fee(interest_matrix):
             filing_date = datetime.datetime.strptime(filing_date_str, "%d/%m/%Y").date()
             day = dayOFDue(financial_year, return_month, "Late Fee")
             return_month_date = parse_month_year(return_month, financial_year)
-            due_date = (return_month_date + relativedelta(months=1)).replace(day= day)
+            due_date = (return_month_date + relativedelta(months=1)).replace(day=day)
             print(f"Due date: {due_date}")
             days_late = max((filing_date - due_date).days, 0)
             calculated_late_fee = (100 * days_late)

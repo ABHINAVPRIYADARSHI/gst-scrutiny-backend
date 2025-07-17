@@ -6,30 +6,24 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 import copy
 
-from utils.globals.constants import total_string
 # Define header row ranges per sheet (0-indexed)
 header_row_map = {
+    "ITC Available": [4, 5, 6, 7, 8],
+    "ITC not available": [4, 5, 6, 7, 8],
     "B2B": [3, 4, 5],
     "B2BA": [3, 4, 5, 6],
-    "CDNR": [3, 4, 5],
-    "CDNRA": [3, 4, 5, 6],
     "ECO": [3, 4, 5],
-    "ECOA": [3, 4, 5, 6],
+    "B2B-CDNR": [3, 4, 5],
+    "B2B-CDNRA": [3, 4, 5, 6],
     "ISD": [3, 4, 5],
     "ISDA": [3, 4, 5, 6],
-    "TDS": [3, 4, 5],
-    "TDSA": [3, 4, 5],
-    "TCS": [3, 4, 5],
     "IMPG": [3, 4, 5],
-    "IMPG SEZ": [3, 4, 5],
-}
-# 0-based column indices to apply 'endswith("-Total")' filter
-row_filter_column_map = {
-    "B2B": 2,     # 3rd column
-    "B2BA": 5,    # 6th column
-    "CDNR": 3,    # 4th column
-    "CDNRA": 3,    # 4th column
-    # Add more sheets as needed
+    "IMPGSEZ": [3, 4, 5],
+    # The following sheets are not available in GSTR-2B.
+    # "ECOA": [3, 4, 5, 6],
+    # "TDS": [3, 4, 5],
+    # "TDSA": [3, 4, 5],
+    # "TCS": [3, 4, 5]
 }
 
 
@@ -77,14 +71,14 @@ def copy_header_with_styles(source_ws, target_ws, header_rows):
                 continue
 
 
-async def generate_gstr2a_merged(input_dir, output_dir):
-    print(f"[GSTR-2A] Started execution of method generate_gstr2a_merged for: {input_dir}")
+async def generate_gstr2b_merged(input_dir, output_dir):
+    print(f"[GSTR-2B] Started execution of method generate_gstr2b_merged for: {input_dir}")
 
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No Excel files found in the input directory.")
 
-    print(f"Found {len(excel_files)} GSTR-2A Excel files.")
+    print(f"Found {len(excel_files)} GSTR-2B Excel files.")
 
     sheet_data = defaultdict(list)
     readme_copy = None
@@ -96,15 +90,15 @@ async def generate_gstr2a_merged(input_dir, output_dir):
 
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
-
-            if sheet_name.lower().strip() == "read me":
-                if not readme_done:
-                    readme_copy = ws
-                    readme_done = True
-                continue
+            # We don't need to merge "read me" sheet
+            # if sheet_name.lower().strip() == "read me":
+            #     if not readme_done:
+            #         readme_copy = ws
+            #         readme_done = True
+            #     continue
 
             if sheet_name not in header_row_map:
-                print(f"Skipping unknown GSTR-2A sheet: {sheet_name}")
+                print(f"Skipping unknown GSTR-2B sheet: {sheet_name}")
                 continue
 
             header_rows = header_row_map[sheet_name]
@@ -122,17 +116,12 @@ async def generate_gstr2a_merged(input_dir, output_dir):
                 continue
 
             df = pd.DataFrame(data_rows)
-            # Apply filter if defined for this sheet
-            if sheet_name in row_filter_column_map:
-                col_idx = row_filter_column_map[sheet_name]
-                df = df[~df.iloc[:, col_idx].astype(str).str.endswith(total_string)]
-
             if not df.empty:
                 sheet_data[sheet_name].append(df)
 
     # Prepare output
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "GSTR-2A_merged.xlsx")
+    output_path = os.path.join(output_dir, "GSTR-2B_merged.xlsx")
     merged_wb = Workbook()
     merged_wb.remove(merged_wb.active)
 
@@ -151,12 +140,6 @@ async def generate_gstr2a_merged(input_dir, output_dir):
             for row in dataframe_to_rows(combined_df, index=False, header=False):
                 merged_ws.append(row)
 
-    # Write Read me sheet (values only)
-    if readme_copy:
-        readme_ws = merged_wb.create_sheet("Read me")
-        for row in readme_copy.iter_rows(values_only=True):
-            readme_ws.append(row)
-
     merged_wb.save(output_path)
-    print(f"✅ [GSTR-2A] merged Excel saved to: {output_path}")
+    print(f"✅ [GSTR-2B] merged Excel saved to: {output_path}")
     return output_path

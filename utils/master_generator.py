@@ -11,11 +11,13 @@ from .gstr1_merged import generate_gstr1_merged
 from .gstr1_merged_analysis import generate_gstr1_merged_analysis
 from .gstr2a__merged_analysis import generate_gstr2a_merged_analysis
 from .gstr2a_merged import generate_gstr2a_merged
+from .gstr2b_merged import generate_gstr2b_merged
 from .gstr3b_analysis import generate_gstr3b_merged_analysis
 from .gstr3b_merged_writer import generate_gstr3b_merged
 from .gstr9_Vs_3B_analysis import generate_gstr9_Vs_3B_analysis
+from .gstr9c_pdf_reader import gstr9c_pdf_reader
 
-return_types = ["GSTR-1", "GSTR-2A", "GSTR-3B", "EWB-IN", "EWB-OUT"]
+return_types = ["GSTR-1", "GSTR-2A", "GSTR-2B", "GSTR-3B", "EWB-IN", "EWB-OUT"]
 
 
 async def generate_merged_excel_and_analysis_report(gstin, report_flag):
@@ -36,6 +38,7 @@ async def generate_return_type_reports(gstin, master_dict):
     gstr2a_analysis_dict = await generate_gstr2a_merged_analysis(gstin)
     gstr3b_analysis_dict = await generate_gstr3b_merged_analysis(gstin)
     gstr9_Vs_3b_analysis_dict = await generate_gstr9_Vs_3B_analysis(gstin)
+    gstr9c_analysis_dict = await gstr9c_pdf_reader(gstin)
     ewb_in_analysis_dict = await generate_ewb_in_merged_analysis(gstin)
     ewb_out_analysis_dict = await generate_ewb_out_merged_analysis(gstin)
     bo_comparison_summary_dict = await generate_bo_comparison_summary_analysis(gstin)
@@ -48,6 +51,8 @@ async def generate_return_type_reports(gstin, master_dict):
         master_dict["gstr3b_analysis_dict"] = gstr3b_analysis_dict
     if gstr9_Vs_3b_analysis_dict:
         master_dict["gstr9_Vs_3b_analysis_dict"] = gstr9_Vs_3b_analysis_dict
+    if gstr9c_analysis_dict:
+        master_dict["gstr9c_analysis_dict"] = gstr9c_analysis_dict
     # if ewb_in_analysis_dict:
     #     master_dict["ewb_in_analysis_dict"] = ewb_in_analysis_dict
     if ewb_out_analysis_dict:
@@ -75,6 +80,9 @@ async def generate_merged_excel_for_return_types(gstin, generated_reports, maste
                     master_dict["gstr1_merged_dict"] = dict_1_merged
                 case "GSTR-2A":
                     output_file = await generate_gstr2a_merged(input_dir, output_dir)
+                    generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
+                case "GSTR-2B":
+                    output_file = await generate_gstr2b_merged(input_dir, output_dir)
                     generated_reports.append({"return_type": rt, "report": output_file}) if output_file else None
                 case "GSTR-3B":
                     output_file, dict_3b_merged = await generate_gstr3b_merged(input_dir, output_dir)
