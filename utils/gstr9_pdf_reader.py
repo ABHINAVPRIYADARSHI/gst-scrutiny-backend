@@ -312,7 +312,7 @@ async def gstr9_pdf_reader(gstin):
             paid_through_ITC_T9 = paid_through_ITC_CGST_T9 + paid_through_ITC_SGST_T9 + paid_through_ITC_IGST_T9 + paid_through_ITC_Cess_T9
             valuesFrom9.update({"tax_payable_T9": tax_payable_T9, "paid_through_cash_T9": paid_through_cash_T9,
                                 "paid_through_ITC_CGST_T9": paid_through_ITC_CGST_T9,
-                                "paid_through_ITC_SGST_T9": paid_through_ITC_IGST_T9, "table_8_I5": table_8_I5,
+                                "paid_through_ITC_SGST_T9": paid_through_ITC_SGST_T9, "table_8_I5": table_8_I5,
                                 "paid_through_ITC_IGST_T9": paid_through_ITC_IGST_T9,
                                 "paid_through_ITC_Cess_T9": paid_through_ITC_Cess_T9,
                                 "paid_through_ITC_T9": paid_through_ITC_T9})

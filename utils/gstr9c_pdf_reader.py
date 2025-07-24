@@ -177,7 +177,7 @@ async def gstr9c_pdf_reader(gstin):
         except Exception as e:
             print(f"[GSTR-9C reader] Error while computing Table11: {e}")
 
-        # Part 26. Table 12F - Unreconciled ITC - Return value if + ve else zero
+        # Para 26. Table 12F - Unreconciled ITC - Return value if + ve else zero
         try:
             table_12 = useful_tables[table_position_in_useful_tables_gstr9c["Table_12"]]
             # table_12_F = table_12.iloc[len(table_12) - 1, 2]  # Row F is last row
@@ -186,6 +186,14 @@ async def gstr9c_pdf_reader(gstin):
             print(f"[GSTR-9C] Table 12F - unreconciled ITC: {valuesFrom9c['table_12_F']}")
         except Exception as e:
             print(f"[GSTR-9C reader] Error while computing Table12 F: {e}")
+
+        # Para 28. Table 12D -ITC availed as per audited financial statements or books of account
+        try:
+            table_12_D = table_12[table_12.iloc[:, 0] == 'D']
+            valuesFrom9c["table_12_D"] = table_12_D.iloc[0, 2]
+            print(f"[GSTR-9C] Table 12_D: {valuesFrom9c['table_12_D']}")
+        except Exception as e:
+            print(f"[GSTR-9C reader] Error while computing Table12 D: {e}")
 
         # Part 27. Table 16- Amount Payable due to ITC reconciliation -
         # Amount payable - CGST, SGST, IGST, Cess, interest, Penalty.

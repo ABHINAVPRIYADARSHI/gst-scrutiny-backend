@@ -589,7 +589,6 @@ async def asmt_10_report_generator(gstin, master_dict):
         value_2 = master_dict.get('gstr1_merged_dict', {}).get('result_point_12_total_late_fee_gstr1', None)
         value_3 = master_dict.get('gstr3b_merged_dict', {}).get('result_point_12_late_fee_paid_in_cash', None)
         if isinstance(value_1, numbers.Number) and isinstance(value_2, numbers.Number):
-            print(" Inside if point 1")
             total_late_fee = value_1 + value_2
             if isinstance(value_3, numbers.Number):
                 total_late_fee = total_late_fee - value_3
@@ -641,11 +640,12 @@ async def asmt_10_report_generator(gstin, master_dict):
         value_1 = master_dict.get('gstr2a_analysis_dict', {}).get('result_point_15', None)
         value_2 = master_dict.get('gstr3b_analysis_dict', {}).get('result_point_15', None)
         if isinstance(value_1, numbers.Number) and isinstance(value_2, numbers.Number):
-            if value_1 - value_2 > 0:  # populate only if value is +ve
-                table.rows[row_pos].cells[2].text = rupee_symbol + str(abs(value_1 - value_2))
+            difference = round(value_1 - value_2, 2)
+            if difference > 0:  # populate only if value is +ve
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(difference)
             else:
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
-                print(f"Not accounted: Row 15 cell 3 value is -ve or 0.00: {value_1 - value_2}, replacing by 0 instead.")
+                print(f"Not accounted: Row 15 cell 3 value is -ve or 0.00: {difference}, replacing by 0 instead.")
         elif value_1 is None:
             table.rows[row_pos].cells[2].text = gstr2a_analysis_NA
             print(
@@ -680,8 +680,11 @@ async def asmt_10_report_generator(gstin, master_dict):
         value = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('result_point_17', None)
         if value is None:
             table.rows[row_pos].cells[2].text = gstr9_NA
-        else:
+        elif value > 0:
             table.rows[row_pos].cells[2].text = rupee_symbol + str(value)
+        else:
+            print(f"Not accounted: Row 17 cell 3 CGST is -ve or 0.00: {value}, replacing by 0 instead.")
+            table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         row_pos += 1
 
         # 18. Row 18 cell 3
@@ -1060,6 +1063,24 @@ async def asmt_10_report_generator(gstin, master_dict):
         elif value is None:
             print(f"Row 27 cell 3: unreconciled turnover value is not proper.  value = {value}")
             table.rows[row_pos].cells[2].text = gstr9C_NA
+        row_pos += 1
+
+        # 28. Row 28
+        value_1 = master_dict.get('gstr3b_analysis_dict', {}).get('result_point_28', None)
+        value_2 = master_dict.get('gstr9c_analysis_dict', {}).get('table_12_D', None)
+        if isinstance(value_1, numbers.Number) and isinstance(value_2, numbers.Number):
+            difference = round(value_1 - value_2, 2)
+            if difference > 0:  # populate only if value is +ve
+                table.rows[row_pos].cells[2].text = rupee_symbol + str(difference)
+            else:
+                table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
+                print(f"Not accounted: Row 28 cell 3 value is -ve or 0.00: {difference}, replacing by 0 instead.")
+        elif value_1 is None:
+            table.rows[row_pos].cells[2].text = gstr3b_analysis_NA
+            print(f"Row 28 cell 3: Either one or both of the values is not proper. value1: {value_1}, value2 = {value_2}")
+        elif value_2 is None:
+            table.rows[row_pos].cells[2].text = gstr9C_NA
+            print(f"Row 28 cell 3: Either one or both of the values is not proper. value1: {value_1}, value2 = {value_2}")
         row_pos += 1
 
         # Save the document

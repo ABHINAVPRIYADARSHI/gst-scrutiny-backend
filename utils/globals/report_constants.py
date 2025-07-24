@@ -30,6 +30,7 @@ col_2_values = [
     "Additional amount payable in cash as per 9C",
     "Unreconciled ITC as per 9C",
     "Amount payable due to ITC reconciliation as per 9C",
+    "Excess ITC as per table 4C of GSTR-3B vis a vis ITC as per table 12D of 9C",
     "Miscellaneous (Specify)"
 ]
 
@@ -57,11 +58,12 @@ col_4_values = [
     "Sec. 20",
     "IGST Act",
     "Rule 86(B)",
-    "",
-    "",
-    "",
-    "",
-    "",
+    "Suppression of taxable value under Sec. 15 & Sec. 74",
+    "Sec. 73/74 short paid tax",
+    "Sec. 73/74 short paid tax",
+    "Sec. 16",
+    "Sec. 73/74 short paid tax",
+    "Sec. 16",
     "[Relevant Provision]"
 ]
 rupee_symbol = "₹ "

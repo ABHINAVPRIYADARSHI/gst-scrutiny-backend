@@ -85,38 +85,50 @@ async def generate_gstr3b_merged(input_dir, output_dir):
         print("[GSTR-3B_merged_writer]: Addition of values of tables across all files completed.")
 
         # Result point 8: Find Ineligible ITC due to delay in filing GSTR-3B
-        month_wise_table_4_df, ineligible_ITC_list = calculate_ineligible_ITC(interest_matrix)
-        print(f"[GSTR-3B_merged] Total ineligible ITC due to late filing: {ineligible_ITC_list}")
-        final_result_points["result_point_8_IGST"] = round(ineligible_ITC_list[0], 2)
-        final_result_points["result_point_8_CGST"] = round(ineligible_ITC_list[1], 2)
-        final_result_points["result_point_8_SGST"] = round(ineligible_ITC_list[2], 2)
-        final_result_points["result_point_8_CESS"] = round(ineligible_ITC_list[3], 2)
+        try:
+            month_wise_table_4_df, ineligible_ITC_list = calculate_ineligible_ITC(interest_matrix)
+            print(f"[GSTR-3B_merged] Total ineligible ITC due to late filing: {ineligible_ITC_list}")
+            final_result_points["result_point_8_IGST"] = round(ineligible_ITC_list[0], 2)
+            final_result_points["result_point_8_CGST"] = round(ineligible_ITC_list[1], 2)
+            final_result_points["result_point_8_SGST"] = round(ineligible_ITC_list[2], 2)
+            final_result_points["result_point_8_CESS"] = round(ineligible_ITC_list[3], 2)
+        except Exception as e:
+            print(f"[GSTR-3B_merged_writer] ❌ Error while setting result_point_8: {e}")
 
         # Result point 9: Start  interest calculation
-        interest_records_for_excel, interest_list = calculate_interest(interest_matrix)
-        final_result_points['result_point_9_IGST'] = round(interest_list[0], 2)
-        final_result_points['result_point_9_CGST'] = round(interest_list[1], 2)
-        final_result_points['result_point_9_SGST'] = round(interest_list[2], 2)
-        final_result_points['result_point_9_CESS'] = round(interest_list[3], 2)
+        try:
+            interest_records_for_excel, interest_list = calculate_interest(interest_matrix)
+            final_result_points['result_point_9_IGST'] = round(interest_list[0], 2)
+            final_result_points['result_point_9_CGST'] = round(interest_list[1], 2)
+            final_result_points['result_point_9_SGST'] = round(interest_list[2], 2)
+            final_result_points['result_point_9_CESS'] = round(interest_list[3], 2)
+        except Exception as e:
+            print(f"[GSTR-3B_merged_writer] ❌ Error while setting result_point_9: {e}")
 
         # Result point 12: Start late fee calculation
-        late_fee_records = calculate_late_fee(interest_matrix)
-        total_late_fee = sum(row[-1] for row in late_fee_records)
-        print(f"[GSTR-3B] Total late fee: {total_late_fee}")
-        final_result_points["result_point_12_total_late_fee_gstr3b"] = total_late_fee
-        # Find late fee paid in cash
-        table_6_1_merged = final_tables["6.1"]
-        late_fee_paid_in_cash = pd.to_numeric(table_6_1_merged.iloc[:, 8], errors='coerce').fillna(0).sum()
-        print(f"[GSTR-3B] Total Late fee paid in cash: {late_fee_paid_in_cash}")
-        final_result_points["result_point_12_late_fee_paid_in_cash"] = round(late_fee_paid_in_cash, 2)
+        try:
+            late_fee_records = calculate_late_fee(interest_matrix)
+            total_late_fee = sum(row[-1] for row in late_fee_records)
+            print(f"[GSTR-3B_merged_writer] Total late fee: {total_late_fee}")
+            final_result_points["result_point_12_total_late_fee_gstr3b"] = total_late_fee
+            # Find late fee paid in cash
+            table_6_1_merged = final_tables["6.1"]
+            late_fee_paid_in_cash = pd.to_numeric(table_6_1_merged.iloc[:, 8], errors='coerce').fillna(0).sum()
+            print(f"[GSTR-3B_merged_writer] Total Late fee paid in cash: {late_fee_paid_in_cash}")
+            final_result_points["result_point_12_late_fee_paid_in_cash"] = round(late_fee_paid_in_cash, 2)
+        except Exception as e:
+            print(f"[GSTR-3B_merged_writer] ❌ Error while setting result_point_12: {e}")
 
         # Result point 22: Find cash liability due to less cash payment
-        cash_liability = calculate_cash_liability(interest_matrix)
-        print(f"Total cash liability: {cash_liability}")
-        final_result_points["result_point_22_IGST"] = round(cash_liability[0], 2)
-        final_result_points["result_point_22_CGST"] = round(cash_liability[1], 2)
-        final_result_points["result_point_22_SGST"] = round(cash_liability[2], 2)
-        final_result_points["result_point_22_CESS"] = round(cash_liability[3], 2)
+        try:
+            cash_liability = calculate_cash_liability(interest_matrix)
+            print(f"Total cash liability: {cash_liability}")
+            final_result_points["result_point_22_IGST"] = round(cash_liability[0], 2)
+            final_result_points["result_point_22_CGST"] = round(cash_liability[1], 2)
+            final_result_points["result_point_22_SGST"] = round(cash_liability[2], 2)
+            final_result_points["result_point_22_CESS"] = round(cash_liability[3], 2)
+        except Exception as e:
+            print(f"[GSTR-3B_merged_writer] ❌ Error while setting result_point_22: {e}")
 
         # Start saving analysis data to excel
         os.makedirs(output_dir, exist_ok=True)
