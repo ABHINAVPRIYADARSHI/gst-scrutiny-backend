@@ -64,7 +64,24 @@ def read_index():
     return JSONResponse(content={"error": "Frontend not found"}, status_code=404)
 
 
+# @app.get("/logo.ico")
+# def get_logo():
+#     logo_ico_file = os.path.join(BUILD_DIR, "logo.ico")
+#     if os.path.exists(logo_ico_file):
+#         return FileResponse(logo_ico_file)
+#     return JSONResponse(content={"error": "logo.ico not found"}, status_code=404)
+#
+#
+# @app.get("/logo.png")
+# def get_logo():
+#     logo_png_file = os.path.join(BUILD_DIR, "logo.png")
+#     if os.path.exists(logo_png_file):
+#         return FileResponse(logo_png_file)
+#     return JSONResponse(content={"error": "logo.png not found"}, status_code=404)
+
+
 # === API Routes ===
+
 
 @app.post("/upload/")
 async def upload_files(

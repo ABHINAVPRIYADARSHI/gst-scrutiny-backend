@@ -61,7 +61,7 @@ async def asmt_10_report_generator(gstin, master_dict):
 
         # Add Sub-heading
         sub_heading = doc.add_paragraph(
-            'Notice for Intimation of Discrepancy in Return after Scrutiny\n[See rule 100(1)]')
+            'Notice for Intimation of Discrepancy in Return after Scrutiny\n[See rule 99(1)]')
         sub_heading.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
         # Add To Address
@@ -73,7 +73,7 @@ async def asmt_10_report_generator(gstin, master_dict):
 
         # Add Subject
         doc.add_paragraph(
-            '\nSubject: Discrepancies noticed under Section 61 read with Rule 100 of CGST Rules, 2017 – Notice for '
+            '\nSubject: Discrepancies noticed under Section 61 read with Rule 99 of CGST Rules, 2017 – Notice for '
             'explanation')
 
         # Add Dear Taxpayer paragraph
@@ -1048,7 +1048,7 @@ async def asmt_10_report_generator(gstin, master_dict):
                 print(f"Not accounted: Row 26 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         elif value is None:
-            print(f"Row 26 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            print(f"Row 26 cell 3: value is not proper. value = {value}")
             table.rows[row_pos].cells[2].text = gstr9C_NA
         row_pos += 1
 
@@ -1061,7 +1061,7 @@ async def asmt_10_report_generator(gstin, master_dict):
                 print(f"Not accounted: Row 27 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         elif value is None:
-            print(f"Row 27 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            print(f"Row 27 cell 3: value is not proper. value = {value}")
             table.rows[row_pos].cells[2].text = gstr9C_NA
         row_pos += 1
 

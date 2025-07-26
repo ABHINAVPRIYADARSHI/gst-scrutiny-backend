@@ -60,14 +60,14 @@ async def gstr9c_pdf_reader(gstin):
     useful_tables = []
     valuesFrom9c = {}
     gstr9c_format = oldFormat  # Let by-default be OLD_FORMAT
-    input_path_of_GSTR_9 = f"uploaded_files/{gstin}/GSTR-9C/"
-    output_path_GSTR_9 = f"reports/{gstin}/GSTR-9C.xlsx"
+    input_path_of_GSTR_9c = f"uploaded_files/{gstin}/GSTR-9C/"
+    output_path_GSTR_9C = f"reports/{gstin}/GSTR-9C.xlsx"
 
     try:
-        pdf_files = glob(os.path.join(input_path_of_GSTR_9, "*.pdf"))
+        pdf_files = glob(os.path.join(input_path_of_GSTR_9c, "*.pdf"))
         if not pdf_files:
-            raise FileNotFoundError(f"[GSTR-9reader]: Input file not found at {input_path_of_GSTR_9}")
-        print(f"Found {len(pdf_files)} GSTR-9 PDF file(s).")
+            raise FileNotFoundError(f"[GSTR-9C reader]: Input file not found at {input_path_of_GSTR_9c}")
+        print(f"Found {len(pdf_files)} GSTR-9C PDF file(s).")
 
         # Read the only annual GSTR-9 file and extract tables
         with pdfplumber.open(pdf_files[0]) as pdf:
@@ -109,7 +109,7 @@ async def gstr9c_pdf_reader(gstin):
                     df.iat[row_idx, col_idx] = clean_and_parse_number(df.iat[row_idx, col_idx])
 
         # Write the dataframes in excel sheet GSTR-9.xlsx
-        with pd.ExcelWriter(output_path_GSTR_9, engine="xlsxwriter") as writer:
+        with pd.ExcelWriter(output_path_GSTR_9C, engine="xlsxwriter") as writer:
             for i, df in enumerate(useful_tables):
                 sheet_name = f"Table_{i}"
                 df.to_excel(writer, sheet_name=sheet_name, index=False)

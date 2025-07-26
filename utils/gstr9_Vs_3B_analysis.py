@@ -213,7 +213,8 @@ async def generate_gstr9_Vs_3B_analysis(gstin):
             ws.cell(row=row_cursor, column=1, value="GSTR-9 late fee")
             if valuesFrom9.get('late_fee_gstr9_applicable') is None:
                 print("Setting late_fee_gstr9_applicable from GSTR-3B calculation")
-                final_result_points['result_point_13'] = valuesFrom3b.get('result_point_13')
+                ws.cell(row=row_cursor, column=2, value=valuesFrom3b["result_point_13"])
+                final_result_points['result_point_13'] = valuesFrom3b["result_point_13"]
             else:
                 ws.cell(row=row_cursor, column=2, value=valuesFrom9["late_fee_gstr9_applicable"])
                 final_result_points['result_point_13'] = valuesFrom9['late_fee_gstr9_applicable']

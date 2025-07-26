@@ -1035,7 +1035,7 @@ async def general_analysis_report_generator(gstin, master_dict):
                 print(f"Not accounted: Row 26 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         elif value is None:
-            print(f"Row 26 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            print(f"Row 26 cell 3: value is not proper. value = {value}")
             table.rows[row_pos].cells[2].text = gstr9C_NA
         row_pos += 1
 
@@ -1048,7 +1048,7 @@ async def general_analysis_report_generator(gstin, master_dict):
                 print(f"Not accounted: Row 27 cell 3 value is -ve or 0.00: {value}, replacing by 0 instead.")
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
         elif value is None:
-            print(f"Row 27 cell 3: unreconciled turnover value is not proper.  value = {value}")
+            print(f"Row 27 cell 3: value is not proper. value = {value}")
             table.rows[row_pos].cells[2].text = gstr9C_NA
         row_pos += 1
 
