@@ -2,7 +2,7 @@ import pdfplumber
 import pandas as pd
 from tabulate import tabulate
 
-from utils.globals.constants import int_nine, int_zero, int_one
+from utils.globals.constants import int_nine, int_zero, int_one, int_ten
 
 index_map_format_before_2022 = {
     "1": 0,
@@ -46,10 +46,17 @@ def extract_fixed_tables_from_gstr3b(pdf_path):
                         df.columns = df.iloc[0]
                         df = df[1:].reset_index(drop=True)
                     all_tables.append(df)
+                    # print(f"{df}")
+                    # print("*****************")
+
     if len(all_tables) == int_nine:  # New format has 11 tables
         print(
             f"GSTR-3B file {pdf_path} uploaded is old format (earlier than or 2021-22) since it has {len(all_tables)} tables.")
         return extract_old_format_tables(all_tables, table_map)
+    elif len(all_tables) == int_ten:  # New format has 10 tables (Sep 2024 onwards)
+        print(
+            f"GSTR-3B file {pdf_path} uploaded is new format (Sep 2024 onwards) since it has {len(all_tables)} tables.")
+        return extract_new_format_tables(all_tables, table_map)
     else:
         print(
             f"GSTR-3B file {pdf_path} uploaded is new format (later than FY 2021-22) since it has {len(all_tables)} tables.")

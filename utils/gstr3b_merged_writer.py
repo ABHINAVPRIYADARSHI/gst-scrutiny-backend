@@ -48,7 +48,9 @@ async def generate_gstr3b_merged(input_dir, output_dir):
             interest_tables_list = []
             table_map = extract_fixed_tables_from_gstr3b(pdf_path)
             for key, df in table_map.items():
-                combined_tables[key].append(df)  # contains tables from all PDF files with table number as key
+                if key == str_six_point_one:
+                    df = preprocess_table_6(df)
+                combined_tables[key].append(df)  #  contains list of tables as value from all PDF files with table number as key
                 # We need tables 1,2,4 & 6 for interest calc & late fee.
                 if key in (str_one, str_two, str_three_point_one, str_four, str_six_point_one):
                     interest_tables_list.append(df)
@@ -57,16 +59,16 @@ async def generate_gstr3b_merged(input_dir, output_dir):
         # Table 3.1.1 is available only in new format
         if str_three_point_one_point_one not in combined_tables:
             gstr3b_format = oldFormat
-
+        print(f"Set GSTR-3B format as : {gstr3b_format}")
         final_tables = {}
         for key, df_list in combined_tables.items():
             if key in (str_one, str_two):  # We are not adding values from two tables as these are info values
                 final_tables[key] = df_list[0]
                 continue
-            elif key == str_six_point_one:
-                preprocess_table_6(df_list)
+            # elif key == str_six_point_one:
+            #     preprocess_table_6(df_list)
             base_df = df_list[0].copy(deep=True)
-            # print(f"\nProcessing table: {key}")
+            print(f"Processing table: {key}")
             # print(f"Number of files: {len(df_list)}")
             for row_idx in range(base_df.shape[0]):  # Summation logic cell by cell
                 for col_idx in range(1, base_df.shape[1]):
@@ -82,6 +84,7 @@ async def generate_gstr3b_merged(input_dir, output_dir):
                             continue
                     base_df.iat[row_idx, col_idx] = total  # if pd.notnull(total) and total != 0 else ""
             final_tables[key] = base_df  # Contains summed up values of tables to be written in excel
+            print(f"Processing table completed: {key}")
         print("[GSTR-3B_merged_writer]: Addition of values of tables across all files completed.")
 
         # Result point 8: Find Ineligible ITC due to delay in filing GSTR-3B
@@ -263,7 +266,7 @@ def calculate_interest(interest_matrix):
     for entry in interest_matrix:
         try:
             first_table, second_table, table_3, table_4, table_6_1 = entry
-            table_6_1 = preprocess_table_6([table_6_1])[0]
+            # table_6_1 = preprocess_table_6([table_6_1])[0]
             # Extract financial year and month
             financial_year = first_table.iloc[0, 1]
             return_month = first_table.iloc[1, 1]
@@ -378,7 +381,7 @@ def calculate_cash_liability(interest_matrix):
     for entry in interest_matrix:
         try:
             first_table, second_table, table_3_1, table_4, table_6_1 = entry
-            table_6_1 = preprocess_table_6([table_6_1])[0]
+            # table_6_1 = preprocess_table_6([table_6_1])[0]
             # Extract financial year and month
             financial_year = first_table.iloc[0, 1]
             return_month = first_table.iloc[1, 1]
@@ -421,14 +424,17 @@ def calculate_cash_liability(interest_matrix):
     return cash_liability
 
 
-def preprocess_table_6(df_list):
-    """ Cleans and standardizes the structure of GSTR-3B Table 6.1 across multiple files.
-        Assumes df_list is a list of DataFrames for Table 6.1.
-        """
-    for i in range(len(df_list)):
-        df_list[i].columns = manual_columns
-        df_list[i] = df_list[i].iloc[1:].reset_index(drop=True)
-    return df_list
+def preprocess_table_6(df):
+    """ Cleans and standardizes the structure of GSTR-3B Table 6.1 across multiple files."""
+    # print(f"Preprocessing table 6.1")
+    # for i in range(len(df)):
+    # Table 6.1 in new format of GSTR-3B (Sep 2024 onwards) has 11 columns instead of 9.
+    if df.shape[1] == 11:
+        df = df.drop(df.columns[[2, 3]], axis=1)
+    df.columns = manual_columns
+    df = df.iloc[1:].reset_index(drop=True)
+    # print(f"Preprocessing table 6.1 completed")
+    return df
 
 
 # Get due date = 20th of next month from return month

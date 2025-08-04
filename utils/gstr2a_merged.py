@@ -6,9 +6,10 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 import copy
 
-from utils.globals.constants import total_string
+from utils.globals.constants import total_string, sheet_overview
+
 # Define header row ranges per sheet (0-indexed)
-header_row_map = {
+header_row_map_new = {
     "B2B": [3, 4, 5],
     "B2BA": [3, 4, 5, 6],
     "CDNR": [3, 4, 5],
@@ -21,7 +22,22 @@ header_row_map = {
     "TDSA": [3, 4, 5],
     "TCS": [3, 4, 5],
     "IMPG": [3, 4, 5],
-    "IMPG SEZ": [3, 4, 5],
+    "IMPG SEZ": [3, 4, 5]
+}
+header_row_map_old = {
+    "B2B": [0,1,2],
+    "B2BA": [0,1,2],
+    "CDNR": [0,1,2],
+    "CDNRA": [0,1,2],
+    # "ECO": [3, 4, 5],
+    # "ECOA": [3, 4, 5, 6],
+    "ISD": [0,1,2],
+    "ISDA": [0,1,2],
+    "TDS": [0,1,2],
+    "TDSA": [0,1,2],
+    "TCS": [0,1,2],
+    "IMPG": [0,1,2],
+    "IMPGSEZ": [0,1,2]
 }
 # 0-based column indices to apply 'endswith("-Total")' filter
 row_filter_column_map = {
@@ -30,6 +46,16 @@ row_filter_column_map = {
     "CDNR": 3,    # 4th column
     "CDNRA": 3,    # 4th column
     # Add more sheets as needed
+}
+
+TAX_HEADER_STANDARDIZATION = {
+    "Integrated Tax  (₹)": "Integrated Tax (₹)",
+    "Integrated tax (₹)": "Integrated Tax (₹)",
+    "State/UT tax (₹)": "State/UT Tax (₹)",
+    "State Tax (₹)": "State/UT Tax (₹)",
+    "Cess  (₹)": "Cess (₹)",
+    "Cess Amount (₹)": "Cess (₹)",
+    "Rate(%)": "Rate (%)"
 }
 
 
@@ -50,7 +76,12 @@ def copy_header_with_styles(source_ws, target_ws, header_rows):
         target_ws.row_dimensions[target_row_idx].height = source_ws.row_dimensions[source_row_idx + 1].height
 
         for col_idx, cell in enumerate(source_row, start=1):
-            new_cell = target_ws.cell(row=target_row_idx, column=col_idx, value=cell.value)
+            # new_cell = target_ws.cell(row=target_row_idx, column=col_idx, value=cell.value)
+            raw_value = cell.value
+            # Normalize header names if they match known messy versions
+            if isinstance(raw_value, str) and raw_value.strip() in TAX_HEADER_STANDARDIZATION:
+                raw_value = TAX_HEADER_STANDARDIZATION[raw_value.strip()]
+            new_cell = target_ws.cell(row=target_row_idx, column=col_idx, value=raw_value)
             if cell.has_style:
                 if cell.font: new_cell.font = copy.copy(cell.font)
                 if cell.border: new_cell.border = copy.copy(cell.border)
@@ -78,85 +109,90 @@ def copy_header_with_styles(source_ws, target_ws, header_rows):
 
 
 async def generate_gstr2a_merged(input_dir, output_dir):
-    print(f"[GSTR-2A] Started execution of method generate_gstr2a_merged for: {input_dir}")
+    print(f"[GSTR-2A_merged] Started execution of method generate_gstr2a_merged for: {input_dir}")
 
     excel_files = sorted(glob(os.path.join(input_dir, "*.xlsx")))
     if not excel_files:
         raise FileNotFoundError("No Excel files found in the input directory.")
 
-    print(f"Found {len(excel_files)} GSTR-2A Excel files.")
-
+    print(f"[GSTR-2A_merged] Found {len(excel_files)} GSTR-2A Excel files.")
+    header_row_map = header_row_map_new  # By-default
     sheet_data = defaultdict(list)
-    readme_copy = None
-    readme_done = False
+    # readme_copy = None
+    # readme_done = False
 
     for file_idx, file_path in enumerate(excel_files):
-        wb = load_workbook(file_path, data_only=True)
-        print(f"Processing file: {os.path.basename(file_path)}")
-
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-
-            if sheet_name.lower().strip() == "read me":
-                if not readme_done:
-                    readme_copy = ws
-                    readme_done = True
-                continue
-
-            if sheet_name not in header_row_map:
-                print(f"Skipping unknown GSTR-2A sheet: {sheet_name}")
-                continue
-
-            header_rows = header_row_map[sheet_name]
-            data_start_row = max(header_rows) + 1
-
-            # Extract data rows
-            data_rows = []
-            for row in ws.iter_rows(min_row=data_start_row + 1, values_only=True):
-                if all(cell is None for cell in row):
+        try:
+            wb = load_workbook(file_path, data_only=True)
+            print(f"Processing file: {os.path.basename(file_path)}")
+            if sheet_overview in wb.sheetnames:
+                # sheet Overview is present only in old format. In new format, it's replaced by Readme.
+                header_row_map = header_row_map_old
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                # if sheet_name.lower().strip() == "read me":
+                #     if not readme_done:
+                #         readme_copy = ws
+                #         readme_done = True
+                #     continue
+                if sheet_name not in header_row_map:
+                    print(f"[GSTR-2A_merged] Skipping unknown GSTR-2A sheet: {sheet_name}")
                     continue
-                data_rows.append(row)
+                header_rows = header_row_map[sheet_name]
+                data_start_row = max(header_rows) + 1
+                # Extract data rows
+                data_rows = []
+                for row in ws.iter_rows(min_row=data_start_row + 1, values_only=True):
+                    if all(cell is None for cell in row):
+                        continue
+                    data_rows.append(row)
 
-            if not data_rows:
-                sheet_data[sheet_name]  # ensure key exists
-                continue
-
-            df = pd.DataFrame(data_rows)
-            # Apply filter if defined for this sheet
-            if sheet_name in row_filter_column_map:
-                col_idx = row_filter_column_map[sheet_name]
-                df = df[~df.iloc[:, col_idx].astype(str).str.endswith(total_string)]
-
-            if not df.empty:
-                sheet_data[sheet_name].append(df)
-
-    # Prepare output
+                if not data_rows:
+                    sheet_data[sheet_name]  # ensure individual sheet is copied even if no data exists
+                    continue
+                df = pd.DataFrame(data_rows)
+                # Apply filter if defined for this sheet in as word "Total" is only present in new format sheets
+                if sheet_name in row_filter_column_map and header_row_map == header_row_map_new:
+                    col_idx = row_filter_column_map[sheet_name]
+                    df = df[~df.iloc[:, col_idx].astype(str).str.endswith(total_string)]
+                if not df.empty:
+                    sheet_data[sheet_name].append(df)
+        except Exception as e:
+            print(f"[GSTR-2A_merged] ❌ Error while copying excel file {file_path}")
+    # Prepare output excel file
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "GSTR-2A_merged.xlsx")
     merged_wb = Workbook()
     merged_wb.remove(merged_wb.active)
 
     for sheet_name in header_row_map:
-        merged_ws = merged_wb.create_sheet(title=(sheet_name + "_merged")[:31])
-
-        # Copy formatted header from the first file
-        source_ws = load_workbook(excel_files[0], data_only=False)[sheet_name]
-        header_rows = header_row_map[sheet_name]
-        copy_header_with_styles(source_ws, merged_ws, header_rows)
-
-        # Write stacked data
-        df_list = sheet_data.get(sheet_name)
-        if df_list:
-            combined_df = pd.concat(df_list, ignore_index=True)
-            for row in dataframe_to_rows(combined_df, index=False, header=False):
-                merged_ws.append(row)
-
-    # Write Read me sheet (values only)
-    if readme_copy:
-        readme_ws = merged_wb.create_sheet("Read me")
-        for row in readme_copy.iter_rows(values_only=True):
-            readme_ws.append(row)
+        try:
+            merged_ws = merged_wb.create_sheet(title=(sheet_name + "_merged")[:31])
+            # Copy formatted header from the first file
+            source_wb = load_workbook(excel_files[0], data_only=False)
+            if sheet_name in source_wb.sheetnames:
+                source_ws = source_wb[sheet_name]
+                header_rows = header_row_map[sheet_name]
+                copy_header_with_styles(source_ws, merged_ws, header_rows)
+                # Write stacked data
+                df_list = sheet_data.get(sheet_name)
+                if df_list:
+                    combined_df = pd.concat(df_list, ignore_index=True)
+                    for row in dataframe_to_rows(combined_df, index=False, header=False):
+                        merged_ws.append(row)
+            else:
+                print(f"Sheet '{sheet_name}' not found. Skipping writing to merged excel sheet.")
+            # Rename if sheet name is "IMPGSEZ" to "IMPG SEZ" for uniformity of new & old
+            if sheet_name == "IMPGSEZ":
+                merged_ws.title = "IMPG SEZ_merged"
+            # Write Read me sheet (values only)
+            # if readme_copy:
+            #     readme_ws = merged_wb.create_sheet("Read me")
+            #     for row in readme_copy.iter_rows(values_only=True):
+            #         readme_ws.append(row)
+        except Exception as e:
+            print(f"[GSTR-2A_merged]❌ Error while writing sheet {sheet_name} to merged excel sheet.")
 
     merged_wb.save(output_path)
-    print(f"✅ [GSTR-2A] merged Excel saved to: {output_path}")
+    print(f"✅ [GSTR-2A_merged] merged Excel saved to: {output_path}")
     return output_path

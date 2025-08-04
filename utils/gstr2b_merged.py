@@ -129,17 +129,19 @@ async def generate_gstr2b_merged(input_dir, output_dir):
         merged_ws = merged_wb.create_sheet(title=(sheet_name + "_merged")[:31])
 
         # Copy formatted header from the first file
-        source_ws = load_workbook(excel_files[0], data_only=False)[sheet_name]
-        header_rows = header_row_map[sheet_name]
-        copy_header_with_styles(source_ws, merged_ws, header_rows)
-
-        # Write stacked data
-        df_list = sheet_data.get(sheet_name)
-        if df_list:
-            combined_df = pd.concat(df_list, ignore_index=True)
-            for row in dataframe_to_rows(combined_df, index=False, header=False):
-                merged_ws.append(row)
-
+        source_wb = load_workbook(excel_files[0], data_only=False)
+        if sheet_name in source_wb.sheetnames:
+            source_ws = source_wb[sheet_name]
+            header_rows = header_row_map[sheet_name]
+            copy_header_with_styles(source_ws, merged_ws, header_rows)
+            # Write stacked data
+            df_list = sheet_data.get(sheet_name)
+            if df_list:
+                combined_df = pd.concat(df_list, ignore_index=True)
+                for row in dataframe_to_rows(combined_df, index=False, header=False):
+                    merged_ws.append(row)
+        else:
+            print(f"Sheet '{sheet_name}' not found. Skipping writing to merged excel sheet.")
     merged_wb.save(output_path)
     print(f"✅ [GSTR-2B] merged Excel saved to: {output_path}")
     return output_path
