@@ -165,11 +165,9 @@ def download_report(gstn: str = Query(...), filename: str = Query(...)):
 @app.get("/reports/preview/")
 def preview_excel(gstn: str, filename: str):
     file_path = f"reports/{gstn}/{filename}"
-
     try:
         wb = load_workbook(file_path, data_only=True)
         preview_data = []
-
         for sheet in wb.sheetnames:
             ws = wb[sheet]
             rows = []
@@ -179,9 +177,7 @@ def preview_excel(gstn: str, filename: str):
                 "name": sheet,
                 "data": rows
             })
-
         return JSONResponse(content={"sheets": preview_data})
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -191,21 +187,19 @@ def check_open_reports(gstn: str = Query(...)):
     report_path = Path(f"./reports/{gstn}")
     if not report_path.exists():
         return {"open": False}
-
-    for file in report_path.glob("*.xlsx"):
-        locked = False
-        temp_name = file.with_suffix(".tmp")
-        try:
-            file.rename(temp_name)
-            temp_name.rename(file)  # rename it back
-        except PermissionError:
-            locked = True
-        except Exception:
-            continue  # Ignore other errors
-
-        if locked:
-            return {"open": True}
-
+    for pattern in ("*.xlsx", "*.docx"):
+        for file in report_path.glob(pattern):
+            locked = False
+            temp_name = file.with_suffix(".tmp")
+            try:
+                file.rename(temp_name)
+                temp_name.rename(file)  # rename it back
+            except PermissionError:
+                locked = True
+            except Exception:
+                continue  # Ignore other errors
+            if locked:
+                return {"open": True}
     return {"open": False}
 
 

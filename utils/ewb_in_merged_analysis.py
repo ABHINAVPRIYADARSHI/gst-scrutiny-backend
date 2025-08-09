@@ -11,9 +11,13 @@ async def generate_ewb_in_merged_analysis(gstin):
     print(" === Starting execution of file ewb_in_merged_analysis.py ===")
     input_path = f"reports/{gstin}/EWB-In_merged.xlsx"
     output_path = f"reports/{gstin}/EWB-In_merged_analysis.xlsx"
+    df_by_hsn_code = pd.DataFrame()
+    df_by_GSTIN = pd.DataFrame()
+    df_by_vehicle_no = pd.DataFrame()
     try:
         if not os.path.exists(input_path):
-            raise FileNotFoundError(f"[EWB-In_merged analysis]: Input file not found at {input_path}")
+            print(f"[EWB-In_merged analysis] Skipped: Input file not found at {input_path}")
+            return output_path
 
         df = pd.read_excel(input_path, sheet_name=ewb_in_MIS_report, header=0)
         # Convert relevant tax columns to numeric
@@ -21,24 +25,33 @@ async def generate_ewb_in_merged_analysis(gstin):
             df.iloc[:, col] = pd.to_numeric(df.iloc[:, col], errors='coerce')
 
         #  1. Group by HSN
-        df_by_hsn_code = df.groupby('HSN Code')[['Assess Val.', 'Tax Val.']].sum().reset_index()
-        total_row_hsn = df_by_hsn_code[['Assess Val.', 'Tax Val.']].sum()
-        total_row_hsn['HSN Code'] = 'Total'
-        df_by_hsn_code = pd.concat([df_by_hsn_code, pd.DataFrame([total_row_hsn])], ignore_index=True)
+        try:
+            df_by_hsn_code = df.groupby('HSN Code')[['Assess Val.', 'Tax Val.']].sum().reset_index()
+            total_row_hsn = df_by_hsn_code[['Assess Val.', 'Tax Val.']].sum()
+            total_row_hsn['HSN Code'] = 'Total'
+            df_by_hsn_code = pd.concat([df_by_hsn_code, pd.DataFrame([total_row_hsn])], ignore_index=True)
+        except Exception as e:
+            print(f"[EWB-In_merged_Analysis] ❌ Error while Group by HSN: {e}")
 
         # 2. Group by GSTIN
         # Step 1: Extract GSTIN from combined column
-        df['GSTIN'] = df['From GSTIN & Name'].str.split('/').str[0].str.strip()
-        df_by_GSTIN = df.groupby('GSTIN')[['Assess Val.', 'Tax Val.']].sum().reset_index()  # Step 2: Group by GSTIN
-        total_row_GSTIN = df_by_GSTIN[['Assess Val.', 'Tax Val.']].sum()
-        total_row_GSTIN['GSTIN'] = 'Total'
-        df_by_GSTIN = pd.concat([df_by_GSTIN, pd.DataFrame([total_row_GSTIN])], ignore_index=True)
+        try:
+            df['GSTIN'] = df['From GSTIN & Name'].str.split('/').str[0].str.strip()
+            df_by_GSTIN = df.groupby('GSTIN')[['Assess Val.', 'Tax Val.']].sum().reset_index()  # Step 2: Group by GSTIN
+            total_row_GSTIN = df_by_GSTIN[['Assess Val.', 'Tax Val.']].sum()
+            total_row_GSTIN['GSTIN'] = 'Total'
+            df_by_GSTIN = pd.concat([df_by_GSTIN, pd.DataFrame([total_row_GSTIN])], ignore_index=True)
+        except Exception as e:
+            print(f"[EWB-In_merged_Analysis] ❌ Error while Group by GSTIN: {e}")
 
         # 3. Group by Vehicle no.
-        df_by_vehicle_no = df.groupby('Latest Vehicle No.')[['Assess Val.', 'Tax Val.']].sum().reset_index()
-        total_row_vehicle = df_by_vehicle_no[['Assess Val.', 'Tax Val.']].sum()
-        total_row_vehicle['Latest Vehicle No.'] = 'Total'
-        df_by_vehicle_no = pd.concat([df_by_vehicle_no, pd.DataFrame([total_row_vehicle])], ignore_index=True)
+        try:
+            df_by_vehicle_no = df.groupby('Latest Vehicle No.')[['Assess Val.', 'Tax Val.']].sum().reset_index()
+            total_row_vehicle = df_by_vehicle_no[['Assess Val.', 'Tax Val.']].sum()
+            total_row_vehicle['Latest Vehicle No.'] = 'Total'
+            df_by_vehicle_no = pd.concat([df_by_vehicle_no, pd.DataFrame([total_row_vehicle])], ignore_index=True)
+        except Exception as e:
+            print(f"[EWB-In_merged_Analysis] ❌ Error while Group by Vehicle no: {e}")
 
         # Write each table to its own sheet
         with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
@@ -57,5 +70,6 @@ async def generate_ewb_in_merged_analysis(gstin):
         return output_path
     except Exception as e:
         print(f"[EWB-In_merged_analysis.py] ❌ Error: {e}")
-        # raise Exception(e)
+        return output_path
+
 

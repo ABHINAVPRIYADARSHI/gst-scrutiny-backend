@@ -116,6 +116,7 @@ late_fee_headers = [
 
 oldFormat = "OLD_FORMAT"
 newFormat = "NEW_FORMAT"
+format19_20 = "2019-20_FORMAT"
 b2b_merged_sheet = "B2B_merged"
 cdnr_merged_sheet = "CDNR_merged"
 debit_note = "DEBIT NOTE"

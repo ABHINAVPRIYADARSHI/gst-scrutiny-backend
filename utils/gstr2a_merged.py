@@ -25,26 +25,26 @@ header_row_map_new = {
     "IMPG SEZ": [3, 4, 5]
 }
 header_row_map_old = {
-    "B2B": [0,1,2],
-    "B2BA": [0,1,2],
-    "CDNR": [0,1,2],
-    "CDNRA": [0,1,2],
+    "B2B": [0, 1, 2],
+    "B2BA": [0, 1, 2],
+    "CDNR": [0, 1, 2],
+    "CDNRA": [0, 1, 2],
     # "ECO": [3, 4, 5],
     # "ECOA": [3, 4, 5, 6],
-    "ISD": [0,1,2],
-    "ISDA": [0,1,2],
-    "TDS": [0,1,2],
-    "TDSA": [0,1,2],
-    "TCS": [0,1,2],
-    "IMPG": [0,1,2],
-    "IMPGSEZ": [0,1,2]
+    "ISD": [0, 1, 2],
+    "ISDA": [0, 1, 2],
+    "TDS": [0, 1, 2],
+    "TDSA": [0, 1, 2],
+    "TCS": [0, 1, 2],
+    "IMPG": [0, 1, 2],
+    "IMPGSEZ": [0, 1, 2]
 }
 # 0-based column indices to apply 'endswith("-Total")' filter
 row_filter_column_map = {
-    "B2B": 2,     # 3rd column
-    "B2BA": 5,    # 6th column
-    "CDNR": 3,    # 4th column
-    "CDNRA": 3,    # 4th column
+    "B2B": 2,  # 3rd column
+    "B2BA": 5,  # 6th column
+    "CDNR": 3,  # 4th column
+    "CDNRA": 3,  # 4th column
     # Add more sheets as needed
 }
 
@@ -121,77 +121,108 @@ async def generate_gstr2a_merged(input_dir, output_dir):
     # readme_copy = None
     # readme_done = False
 
+    # Memory-efficient processing: collect all data first, then concatenate once per sheet
     for file_idx, file_path in enumerate(excel_files):
         try:
             wb = load_workbook(file_path, data_only=True)
             print(f"Processing file: {os.path.basename(file_path)}")
-            if sheet_overview in wb.sheetnames:
-                # sheet Overview is present only in old format. In new format, it's replaced by Readme.
-                header_row_map = header_row_map_old
+
+            # Determine format once per file
+            current_header_map = header_row_map_old if sheet_overview in wb.sheetnames else header_row_map_new
+
             for sheet_name in wb.sheetnames:
+                if sheet_name not in current_header_map:
+                    continue  # Skip unknown sheets early
+
                 ws = wb[sheet_name]
-                # if sheet_name.lower().strip() == "read me":
-                #     if not readme_done:
-                #         readme_copy = ws
-                #         readme_done = True
-                #     continue
-                if sheet_name not in header_row_map:
-                    print(f"[GSTR-2A_merged] Skipping unknown GSTR-2A sheet: {sheet_name}")
-                    continue
-                header_rows = header_row_map[sheet_name]
+                header_rows = current_header_map[sheet_name]
                 data_start_row = max(header_rows) + 1
-                # Extract data rows
-                data_rows = []
-                for row in ws.iter_rows(min_row=data_start_row + 1, values_only=True):
-                    if all(cell is None for cell in row):
-                        continue
-                    data_rows.append(row)
+
+                # More efficient data extraction - filter empty rows during iteration
+                data_rows = [
+                    row for row in ws.iter_rows(min_row=data_start_row + 1, values_only=True)
+                    if not all(cell is None for cell in row)
+                ]
 
                 if not data_rows:
-                    sheet_data[sheet_name]  # ensure individual sheet is copied even if no data exists
+                    sheet_data[sheet_name]  # Ensure sheet exists even if empty
                     continue
+
                 df = pd.DataFrame(data_rows)
-                # Apply filter if defined for this sheet in as word "Total" is only present in new format sheets
-                if sheet_name in row_filter_column_map and header_row_map == header_row_map_new:
+
+                # Apply filtering efficiently
+                if (sheet_name in row_filter_column_map and
+                        current_header_map == header_row_map_new and not df.empty):
                     col_idx = row_filter_column_map[sheet_name]
-                    df = df[~df.iloc[:, col_idx].astype(str).str.endswith(total_string)]
+                    # More efficient string filtering
+                    mask = ~df.iloc[:, col_idx].astype(str).str.endswith(total_string)
+                    df = df[mask]
+
                 if not df.empty:
                     sheet_data[sheet_name].append(df)
+
+            wb.close()  # Explicitly close to free memory
+
         except Exception as e:
-            print(f"[GSTR-2A_merged] ❌ Error while copying excel file {file_path}")
+            print(f"[GSTR-2A_merged] ❌ Error while copying excel file {file_path}: {str(e)}")
     # Prepare output excel file
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "GSTR-2A_merged.xlsx")
     merged_wb = Workbook()
     merged_wb.remove(merged_wb.active)
 
-    for sheet_name in header_row_map:
+    # Load source workbook once for header copying
+    source_wb = None
+    try:
+        source_wb = load_workbook(excel_files[0], data_only=False)
+    except Exception as e:
+        print(f"❌ Could not load source file for headers: {str(e)}")
+        return None
+
+    # Determine which header map to use for output
+    output_header_map = header_row_map_old if sheet_overview in source_wb.sheetnames else header_row_map_new
+
+    for sheet_name in output_header_map:
         try:
-            merged_ws = merged_wb.create_sheet(title=(sheet_name + "_merged")[:31])
-            # Copy formatted header from the first file
-            source_wb = load_workbook(excel_files[0], data_only=False)
+            # Create sheet with proper naming
+            display_name = "IMPG SEZ" if sheet_name == "IMPGSEZ" else sheet_name
+            merged_ws = merged_wb.create_sheet(title=(display_name + "_merged")[:31])
+
+            # Copy formatted header if source sheet exists
             if sheet_name in source_wb.sheetnames:
                 source_ws = source_wb[sheet_name]
-                header_rows = header_row_map[sheet_name]
+                header_rows = output_header_map[sheet_name]
                 copy_header_with_styles(source_ws, merged_ws, header_rows)
-                # Write stacked data
-                df_list = sheet_data.get(sheet_name)
+
+                # Memory-efficient data writing: single concatenation + bulk write
+                df_list = sheet_data.get(sheet_name, [])
                 if df_list:
+                    print(f"[GSTR-2A_merged] Merging {len(df_list)} DataFrames for sheet {sheet_name}")
                     combined_df = pd.concat(df_list, ignore_index=True)
-                    for row in dataframe_to_rows(combined_df, index=False, header=False):
+
+                    # Clear the list immediately to free memory
+                    df_list.clear()
+
+                    # Bulk write data more efficiently
+                    data_rows = combined_df.values.tolist()  # Convert to list once
+                    for row in data_rows:
                         merged_ws.append(row)
+
+                    # Clear DataFrame to free memory
+                    del combined_df
+                    print(f"[GSTR-2A_merged] ✅ Written {len(data_rows)} rows to {sheet_name}")
             else:
-                print(f"Sheet '{sheet_name}' not found. Skipping writing to merged excel sheet.")
-            # Rename if sheet name is "IMPGSEZ" to "IMPG SEZ" for uniformity of new & old
-            if sheet_name == "IMPGSEZ":
-                merged_ws.title = "IMPG SEZ_merged"
-            # Write Read me sheet (values only)
-            # if readme_copy:
-            #     readme_ws = merged_wb.create_sheet("Read me")
-            #     for row in readme_copy.iter_rows(values_only=True):
-            #         readme_ws.append(row)
+                print(f"Sheet '{sheet_name}' not found in source. Creating empty sheet.")
+
         except Exception as e:
-            print(f"[GSTR-2A_merged]❌ Error while writing sheet {sheet_name} to merged excel sheet.")
+            print(f"[GSTR-2A_merged] ❌ Error while writing sheet {sheet_name}: {str(e)}")
+
+    # Close source workbook to free memory
+    if source_wb:
+        source_wb.close()
+
+    # Clear all sheet data to free memory before saving
+    sheet_data.clear()
 
     merged_wb.save(output_path)
     print(f"✅ [GSTR-2A_merged] merged Excel saved to: {output_path}")

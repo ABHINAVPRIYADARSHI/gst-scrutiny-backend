@@ -738,6 +738,8 @@ async def asmt_10_report_generator(gstin, master_dict):
         cgst = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('result_point_19_CGST', None)
         sgst = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('result_point_19_SGST', None)
         cess = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('result_point_19_CESS', None)
+        gstr9_unavailable = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('gstr9_unavailable', None)
+        gstr3b_unavailable = master_dict.get('gstr9_Vs_3b_analysis_dict', {}).get('gstr3b_unavailable', None)
         if isinstance(igst, numbers.Number):
             if igst > 0:
                 table.rows[row_pos].cells[2].text = rupee_symbol + str(igst)
@@ -745,7 +747,10 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[2].text = rupee_symbol + string_zero
                 print(f"Not accounted: Row 19 cell 3 IGST is -ve or 0.00, replacing by 0 instead. {igst}")
         elif igst is None:
-            table.rows[row_pos].cells[2].text = gstr9_NA
+            if gstr9_unavailable:
+                table.rows[row_pos].cells[2].text = gstr9_NA
+            elif gstr3b_unavailable:
+                table.rows[row_pos].cells[2].text = gstr3b_analysis_NA
             print(f"Row 19 cell 3: IGST is not proper: value = {igst}")
 
         if isinstance(cgst, numbers.Number):
@@ -755,7 +760,10 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[3].text = rupee_symbol + string_zero
                 print(f"Not accounted: Row 19 cell 4 CGST is -ve or 0.00, replacing by 0 instead. {cgst}")
         elif cgst is None:
-            table.rows[row_pos].cells[3].text = gstr9_NA
+            if gstr9_unavailable:
+                table.rows[row_pos].cells[3].text = gstr9_NA
+            elif gstr3b_unavailable:
+                table.rows[row_pos].cells[3].text = gstr3b_analysis_NA
             print(f"Row 19 cell 4: CGST is not proper: value = {cgst}")
 
         if isinstance(sgst, numbers.Number):
@@ -765,7 +773,10 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[4].text = rupee_symbol + string_zero
                 print(f"Not accounted: Row 19 cell 5 SGST is -ve or 0.00, replacing by 0 instead. {sgst}")
         elif sgst is None:
-            table.rows[row_pos].cells[4].text = gstr9_NA
+            if gstr9_unavailable:
+                table.rows[row_pos].cells[4].text = gstr9_NA
+            elif gstr3b_unavailable:
+                table.rows[row_pos].cells[4].text = gstr3b_analysis_NA
             print(f"Row 19 cell 5: SGST is not proper: value = {sgst}")
 
         if isinstance(cess, numbers.Number):
@@ -775,7 +786,10 @@ async def asmt_10_report_generator(gstin, master_dict):
                 table.rows[row_pos].cells[5].text = rupee_symbol + string_zero
                 print(f"Not accounted: Row 19 cell 6 CESS is -ve or 0.00, replacing by 0 instead. {cess}")
         elif cess is None:
-            table.rows[row_pos].cells[5].text = gstr9_NA
+            if gstr9_unavailable:
+                table.rows[row_pos].cells[5].text = gstr9_NA
+            elif gstr3b_unavailable:
+                table.rows[row_pos].cells[5].text = gstr3b_analysis_NA
             print(f"Row 19 cell 6: CESS is not proper: value = {cess}")
         row_pos += 1
 

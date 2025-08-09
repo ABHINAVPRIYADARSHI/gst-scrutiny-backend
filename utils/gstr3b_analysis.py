@@ -4,12 +4,14 @@ from utils.globals.constants import result_point_15, result_point_16
 from .gstr3b_merged_reader import gstr3b_merged_reader
 
 
-async def generate_gstr3b_merged_analysis(gstin):
+async def generate_gstr3b_merged_analysis(gstin, valuesFrom3b):
     print(f"[GSTR-3B Analysis] Starting execution of file gstr3B_analysis.py ===")
     final_result_points = {}
     output_path = f"reports/{gstin}/GSTR-3B_analysis.xlsx"
+    df_est_ITC_reversal = pd.DataFrame()
+    df_diff_In_RCM_ITC = pd.DataFrame()
+    df_diff_In_RCM_Pay = pd.DataFrame()
     try:
-        valuesFrom3b = await gstr3b_merged_reader(gstin)
         try:
             final_result_points["gstin_of_taxpayer"] = valuesFrom3b["gstin_of_taxpayer"]
             final_result_points["legal_name_of_taxpayer"] = valuesFrom3b["legal_name_of_taxpayer"]
@@ -102,7 +104,7 @@ async def generate_gstr3b_merged_analysis(gstin):
 
         # Save the workbook
         print(f"Excel file saved to: {output_path}")
-        print(" === ✅ Returning after successful execution of file gstr3b_analysis.py ===")
+        print(" === ✅ Returning after execution of file gstr3b_analysis.py ===")
         return final_result_points
     except Exception as e:
         print(f"[GSTR-3B Analysis] ❌ Error during analysis: {e}")

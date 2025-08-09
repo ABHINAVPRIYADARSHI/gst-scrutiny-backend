@@ -5,29 +5,25 @@ from utils.globals.constants import ewb_out_MIS_report
 
 
 async def generate_ewb_out_merged(input_dir, output_dir):
-    print(f" Started execution of method generate_ewb_out_merged for: {input_dir}")
-    xlsx_files = glob(os.path.join(input_dir, '*.xlsx'))
+    print(f"[EWB-Out_merged.py] Started execution of method generate_ewb_out_merged for: {input_dir}")
     xls_files = glob(os.path.join(input_dir, '*.xls'))
-    all_files = xlsx_files + xls_files
-    if not all_files:
-        raise FileNotFoundError(" ❌ No EWB-OUT Excel files found in the input directory.")
-    print(f"[EWB-Out_merged.py] Found {len(all_files)} Excel files to merge.")
+    if not xls_files:
+        print(f"[EWB-Out_merged.py] Skipped: Input file not found at: {input_dir}")
+        return None
+    print(f"[EWB-Out_merged.py] Found {len(xls_files)} Excel files to merge.")
 
-    merged_df = None
-    for idx, file_path in enumerate(sorted(all_files)):
+    merged_df = pd.DataFrame()
+    dataframes = []
+    for file_path in sorted(xls_files):
         try:
-            print(f"[INFO] Processing file: {file_path}")
+            print(f"[EWB-Out_merged.py] Processing file: {file_path}")
             df = pd.read_html(file_path)[0]  # These are .html files disguised as .xls. We take 1st table.
-            df.to_excel("converted.xlsx", index=False)
-            # If first file → keep header + data
-            if idx == 0:
-                merged_df = df.copy()
-            else:
-                # Append only data rows (skip header)
-                merged_df = pd.concat([merged_df, df], ignore_index=True)
+            dataframes.append(df)
         except Exception as e:
-            print(f"[ERROR] Failed to read file {file_path}: {str(e)}")
-            continue
+            print(f"[EWB-Out_merged.py] ❌ Failed to read file {file_path}: {str(e)}")
+    if dataframes:
+        merged_df = pd.concat(dataframes, ignore_index=True)
+        dataframes.clear()
     # Write merged DataFrame to .xlsx
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "EWB-Out_merged.xlsx")
@@ -39,6 +35,6 @@ async def generate_ewb_out_merged(input_dir, output_dir):
         worksheet = writer.sheets[ewb_out_MIS_report]
         worksheet.set_column(0, 11, 20, wrap_format)  # From columns 0 to 12
 
-    print(f"[EWB_Out_handler.py] Merged file saved: {output_path}")
-    print("=== [EWB_Out_handler.py] Completed execution of method merge_ewb_out_files ===")
+    print(f"[EWB-Out_merged.py] Merged file saved: {output_path}")
+    print("[EWB-Out_merged.py] Completed execution of method merge_ewb_out_files.")
     return output_dir

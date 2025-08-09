@@ -61,12 +61,13 @@ async def gstr9c_pdf_reader(gstin):
     valuesFrom9c = {}
     gstr9c_format = oldFormat  # Let by-default be OLD_FORMAT
     input_path_of_GSTR_9c = f"uploaded_files/{gstin}/GSTR-9C/"
-    output_path_GSTR_9C = f"reports/{gstin}/GSTR-9C.xlsx"
+    output_path_GSTR_9C = None
 
     try:
         pdf_files = glob(os.path.join(input_path_of_GSTR_9c, "*.pdf"))
         if not pdf_files:
-            raise FileNotFoundError(f"[GSTR-9C reader]: Input file not found at {input_path_of_GSTR_9c}")
+            print(f"[GSTR-9C reader] Skipped: Input file not found at {input_path_of_GSTR_9c}")
+            return output_path_GSTR_9C, valuesFrom9c
         print(f"Found {len(pdf_files)} GSTR-9C PDF file(s).")
 
         # Read the only annual GSTR-9 file and extract tables
@@ -109,6 +110,7 @@ async def gstr9c_pdf_reader(gstin):
                     df.iat[row_idx, col_idx] = clean_and_parse_number(df.iat[row_idx, col_idx])
 
         # Write the dataframes in excel sheet GSTR-9.xlsx
+        output_path_GSTR_9C = f"reports/{gstin}/GSTR-9C.xlsx"
         with pd.ExcelWriter(output_path_GSTR_9C, engine="xlsxwriter") as writer:
             for i, df in enumerate(useful_tables):
                 sheet_name = f"Table_{i}"
@@ -195,20 +197,18 @@ async def gstr9c_pdf_reader(gstin):
         except Exception as e:
             print(f"[GSTR-9C reader] Error while computing Table12 D: {e}")
 
-        # Part 27. Table 16- Amount Payable due to ITC reconciliation -
+        # Part 27. Table 16F- Amount Payable due to ITC reconciliation -
         # Amount payable - CGST, SGST, IGST, Cess, interest, Penalty.
         try:
             table_16 = useful_tables[table_position_in_useful_tables_gstr9c["Table_16"]]
             table_16_sum_total = pd.to_numeric(table_16.iloc[:, 2], errors='coerce').sum(skipna=True)
             print(f"[GSTR-9C] Table 16 - Amount Payable due to ITC reconciliation: {table_16_sum_total}")
             valuesFrom9c["table_16_sum_total"] = table_16_sum_total
-            print(" === ✅ Returning after successful execution of file gstr9c_pdf_reader.py ===")
+            print(" === ✅ Returning after execution of file gstr9c_pdf_reader.py ===")
         except Exception as e:
             print(f"[GSTR-9C reader] Error while computing Table16 F: {e}")
 
-        return valuesFrom9c
+        return output_path_GSTR_9C, valuesFrom9c
     except Exception as e:
         print(f"[GSTR-9C reader] ❌ Error: {e}")
-        return valuesFrom9c
-        # print(" Error raised to parent class.")
-        # raise Exception(e)
+        return output_path_GSTR_9C, valuesFrom9c

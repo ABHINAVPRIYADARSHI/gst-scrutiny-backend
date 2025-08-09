@@ -76,27 +76,35 @@ async def generate_gstr1_merged(input_dir, output_dir):
         # ✅ Write Final Output Excel
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, "GSTR-1_merged.xlsx")
-        wb = Workbook()
-        wb.remove(wb.active)  # Remove default sheet
 
-        for sheet_name, header_rows in header_map.items():
-            ws = wb.create_sheet(title=(sheet_name + "_merged")[:31])
-            for header in header_rows:
-                ws.append(header)
-            df_list = sheet_data.get(sheet_name)
-            if df_list:
-                combined_df = pd.concat(df_list, ignore_index=True)
-                for row in dataframe_to_rows(combined_df, index=False, header=False):
-                    ws.append(row)
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            for sheet_name, header_rows in header_map.items():
+                df_list = sheet_data.get(sheet_name)
+                if df_list:
+                    combined_df = pd.concat(df_list, ignore_index=True)
+                    combined_df.to_excel(
+                        writer,
+                        sheet_name=sheet_name + "_merged",
+                        header=False,
+                        index=False,
+                        startrow=len(header_rows),
+                        startcol=0
+                    )
+                    for header in header_rows:
+                        writer.sheets[sheet_name + "_merged"].append(header)
 
-        # ✅ Insert Late Fee Records
-        late_fee_ws = wb.create_sheet(title="Late Fee Record")
-        late_fee_df = pd.DataFrame(late_fee_records, columns=late_fee_headers)
-        for row in dataframe_to_rows(late_fee_df, index=False, header=True):
-            late_fee_ws.append(row)
-        wb._sheets.insert(0, wb._sheets.pop(-1))  # ✅ Move Late Fee Record to first sheet
+            # ✅ Insert Late Fee Records
+            late_fee_df = pd.DataFrame(late_fee_records, columns=late_fee_headers)
+            late_fee_df.to_excel(
+                writer,
+                sheet_name="Late Fee Record",
+                header=True,
+                index=False
+            )
+            writer.sheets["Late Fee Record"].insert_rows(0, 1)  # Add a blank row at top
 
         # ✅ Format Sheets
+        wb = load_workbook(output_path)
         format_workbook_sheets(wb, col_width=25)
 
         # ✅ Save File

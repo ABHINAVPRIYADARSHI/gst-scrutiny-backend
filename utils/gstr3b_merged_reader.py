@@ -11,11 +11,13 @@ from utils.globals.constants import newFormat
 async def gstr3b_merged_reader(gstin):
     print(f"[GSTR-3B_reader] Starting execution of file gstr3b_merged_reader.py ===")
     input_path = f"reports/{gstin}/GSTR-3B_merged.xlsx"
+    valuesFrom3b = {}
+    tables = {}
     try:
         if not os.path.exists(input_path):
-            raise FileNotFoundError(f"[GSTR-3B reader]: Input file not found at {input_path}")
+            print(f"[GSTR-3B reader] Skipped: Input file not found at {input_path}")
+            return valuesFrom3b
         else:
-            valuesFrom3b = {}
             # Load full sheet without header
             df_full = pd.read_excel(input_path, sheet_name="GSTR-3B_merged", header=None)
             print("GSTR-3B_merged.xlsx fetched successfully.")
@@ -27,7 +29,6 @@ async def gstr3b_merged_reader(gstin):
                 TABLE_POSITIONS = OLD_TABLE_POSITIONS_GSTR_3B
             print(f"GSTR-3B_merged.xlsx is based on {gstr3b_format}")
             # Extract all tables
-            tables = {}
             for key in TABLE_POSITIONS:
                 tables[key] = extract_table_with_header(df_full, key, TABLE_POSITIONS)
 
@@ -189,11 +190,11 @@ async def gstr3b_merged_reader(gstin):
                 valuesFrom3b['result_point_13'] = late_fee_calc_from_3B_if_gstr9_not_uploaded
             else:
                 valuesFrom3b['result_point_13'] = 0.0
-            print(" === ✅ Returning after successful execution of file gstr3b_merged_reader.py ===")
+            print(" === ✅ Returning after execution of file gstr3b_merged_reader.py ===")
             return valuesFrom3b
     except Exception as e:
         print(f"[GSTR-3B_reader] ❌ Error: {e}")
-        raise Exception(e)
+        return valuesFrom3b
 
 
 def get_stripped_value(cell):

@@ -13,19 +13,21 @@ from .gstr2a__merged_analysis import generate_gstr2a_merged_analysis
 from .gstr2a_merged import generate_gstr2a_merged
 from .gstr2b_merged import generate_gstr2b_merged
 from .gstr3b_analysis import generate_gstr3b_merged_analysis
+from .gstr3b_merged_reader import gstr3b_merged_reader
 from .gstr3b_merged_writer import generate_gstr3b_merged
 from .gstr9_Vs_3B_analysis import generate_gstr9_Vs_3B_analysis
+from .gstr9_pdf_reader import gstr9_pdf_reader
 from .gstr9c_pdf_reader import gstr9c_pdf_reader
 
 return_types = ["GSTR-1", "GSTR-2A", "GSTR-2B", "GSTR-3B", "EWB-IN", "EWB-OUT"]
 
 
 async def generate_merged_excel_and_analysis_report(gstin, report_flag):
-    master_dict = {'details_of_taxpayer': {'gstin_of_taxpayer': gstin}}  # Analysis points gathered to populate ASTM-10 sheet
+    master_dict = {'details_of_taxpayer': {'gstin_of_taxpayer': gstin}}
     generated_reports = []   # List of merged files generated
     generated_reports = await generate_merged_excel_for_return_types(gstin, generated_reports, master_dict)
     print(f"[Master Generator] Starting with analysis of merged reports for GSTIN: {gstin}")
-    await generate_return_type_reports(gstin, master_dict)
+    await generate_return_type_reports(gstin, master_dict, generated_reports)
     await general_analysis_report_generator(gstin, master_dict)
     if report_flag:
         await asmt_10_report_generator(gstin, master_dict)
@@ -33,15 +35,23 @@ async def generate_merged_excel_and_analysis_report(gstin, report_flag):
     return generated_reports
 
 
-async def generate_return_type_reports(gstin, master_dict):
+async def generate_return_type_reports(gstin, master_dict, generated_reports):
     gstr1_analysis_dict = await generate_gstr1_merged_analysis(gstin)
     gstr2a_analysis_dict = await generate_gstr2a_merged_analysis(gstin)
-    gstr3b_analysis_dict = await generate_gstr3b_merged_analysis(gstin)
-    gstr9_Vs_3b_analysis_dict = await generate_gstr9_Vs_3B_analysis(gstin)
-    gstr9c_analysis_dict = await gstr9c_pdf_reader(gstin)
+    valuesFrom3b = await gstr3b_merged_reader(gstin)
+    gstr3b_analysis_dict = await generate_gstr3b_merged_analysis(gstin, valuesFrom3b)
+    output_file_gstr9, valuesFrom9 = await gstr9_pdf_reader(gstin)
+    if output_file_gstr9:  # not None
+        generated_reports.append(output_file_gstr9)
+    gstr9_Vs_3b_analysis_dict = await generate_gstr9_Vs_3B_analysis(gstin, valuesFrom3b, valuesFrom9)
+    output_file_gstr9c, gstr9c_analysis_dict = await gstr9c_pdf_reader(gstin)
+    if output_file_gstr9c:  # not None
+        generated_reports.append(output_file_gstr9c)
     ewb_in_analysis_dict = await generate_ewb_in_merged_analysis(gstin)
     ewb_out_analysis_dict = await generate_ewb_out_merged_analysis(gstin)
-    bo_comparison_summary_dict = await generate_bo_comparison_summary_analysis(gstin)
+    output_file_BO, bo_comparison_summary_dict = await generate_bo_comparison_summary_analysis(gstin)
+    if output_file_BO:  # not None
+        generated_reports.append(output_file_BO)
 
     if gstr1_analysis_dict:
         master_dict["gstr1_analysis_dict"] = gstr1_analysis_dict
@@ -62,7 +72,7 @@ async def generate_return_type_reports(gstin, master_dict):
 
 
 async def generate_merged_excel_for_return_types(gstin, generated_reports, master_dict):
-    print(f"[Master Generator] Starting execution of function generate_merged_excel_for_return_types for GSTIN: {gstin} ===")
+    print(f"[Master Generator] Starting execution of function generate_merged_excel_for_return_types for GSTIN:{gstin}")
     for rt in return_types:
         input_dir = f"uploaded_files/{gstin}/{rt}"
         output_dir = f"reports/{gstin}/"
@@ -104,6 +114,3 @@ async def generate_merged_excel_for_return_types(gstin, generated_reports, maste
 
     print(f"✅ Function call generate_merged_excel_for_return_types completed for GSTIN: {gstin} ===")
     return generated_reports
-
-
-

@@ -29,11 +29,10 @@ async def generate_gstr2a_merged_analysis(gstin):
     input_path = f"reports/{gstin}/GSTR-2A_merged.xlsx"
     output_path = f"reports/{gstin}/GSTR-2A_analysis.xlsx"
 
-    if not os.path.exists(input_path):
-        print(f"[GSTR-2A Analysis] Skipped: Input file not found at {input_path}")
-        return final_result_points
-
     try:
+        if not os.path.exists(input_path):
+            print(f"[GSTR-2A Analysis] Skipped: Input file not found at {input_path}")
+            return final_result_points
         reverse_charge_liability_B2B_merged = pd.DataFrame()
         all_sheets = pd.ExcelFile(input_path)
         # Load Excel and extract headers
@@ -57,9 +56,10 @@ async def generate_gstr2a_merged_analysis(gstin):
         else:
             print("B2B_merged sheet not found.")
         # -- 2. B2B_merged sheet: Cancelled ITC Summary (CANCELLED_DATE_COL should not be empty)--
-        # 'Effective date of cancellation' col has d/f positions in old(19th) and new(21st) GSTR-2A excel files.
-        # Also, in new format, column name is missing. So, instead of accessing by position, we will have to access
-        # the column by name after setting it in new excel format. Old excel format already has column name.
+        # 'Effective date of cancellation' col has d/f positions in old(col S) and new(col U) GSTR-2A excel files.
+        # Also, in new format, column name is missing in 3rd header row. So, instead of accessing by position, we will
+        # have to access the column by name after setting it in new excel format. Old excel format already has column
+        # name, so we can directly access there without any modification.
         try:
             itc_from_cancelled_taxpayers_B2B_merged = pd.DataFrame()
             if df_B2B_merged.shape[1] >= 21:  # the df should have at least 21 columns

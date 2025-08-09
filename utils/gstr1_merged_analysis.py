@@ -5,7 +5,7 @@ import os
 from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 
-from utils.globals.constants import result_point_13, string_yes, string_no, result_point_14
+from utils.globals.constants import string_yes, string_no, result_point_14
 
 HSN_COL = 0
 RATE_COL = 4
@@ -24,6 +24,7 @@ async def generate_gstr1_merged_analysis(gstin: str):
 
     try:
         # Read the HSN sheet with header at second row (index 1)
+        print(f"[GSTR-1 Analysis] Started analysing HSN_merged sheet.")
         df = pd.read_excel(input_path, sheet_name="hsn_merged", header=1)
 
         # Convert relevant tax columns to numeric
@@ -45,6 +46,7 @@ async def generate_gstr1_merged_analysis(gstin: str):
         hsn_counts = df_by_hsn_rate.groupby("HSN").size()
         multiple_rows_per_hsn_flag = string_yes if (hsn_counts > 1).any() else string_no
         final_result_points[result_point_14] = multiple_rows_per_hsn_flag
+        print(f"[GSTR-1 Analysis] Completed analysing HSN_merged sheet.")
 
         # Write each table to its own sheet
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
